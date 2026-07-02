@@ -93,18 +93,19 @@ void emit(char b) {
 
 void _NOP();
 
+int rlit(word a) {
+  int r= 0;
+  if (a >= 64) r= rlit(a>>6);
+  emit(a & 0b111111);
+  return r+1;
+}
+
 void LIT(word a) {
   // protect
   if (isprefix) _NOP();
   // serve
   // TODO: negative -1 opt
-  int n= 0;
-  do {
-    emit(a & 0b111111);
-    a>>= 6;
-    ++n;
-  } while(a);
-  isprefix= n;
+  isprefix= rlit(a);
 }
 
 // assumes have 16 bit addressing varaible
@@ -205,12 +206,21 @@ void _FPEEK()       { emit(0xFB); }
 void _SET()         { emit(0xFC); }
 
 void _BSWAP()       { emit(0xFD); }
-void _SIGN()        { emit(0xFE); }
-void _TRUE()        { emit(0xFF); }
+void _SIGN()        { char n= isprefix; emit(0xFE); isprefix= n; }
+void _TRUE()        { emit(0xFF); isprefix= 1; }
 
 
-#define PRE        }; if (sizeof(arr)) LIT(arr[0]); }
-#define POST       { word arr[]= {
+
+void _STR(char* s) {
+  while(*s) emit(*s++);
+  emit(0);
+}
+
+// capture 0 or 1 number! more: delimit with NOP
+
+#define PRE         }; if (sizeof(arr)) LIT(arr[0]); }
+#define POST        { word arr[]= {
+
 
 #define INC         PRE _INC(); POST
 #define DEC         PRE _DEC(); POST
@@ -255,6 +265,13 @@ void _TRUE()        { emit(0xFF); }
 #define SIGN        PRE _SIGN(); POST
 #define TRUE        PRE _TRUE(); POST
 
+#define PUTH        PRE JSR(0xB); POST
+#define PUTN        PRE JSR(0xC); POST
+#define PUTS        PRE JSR(0xD); POST
+#define GETCHAR     PRE JSR(0xE); POST
+#define PUTCHAR     PRE JSR(0xF); POST
+
+#define STR(s)      PRE _STR(s); POST
 
 #define LABEL(name) int name= wc+pc;
 
@@ -262,6 +279,8 @@ void setup() {
   pc= 1024; wc= 0;
 
   POST
+    0x1234 NOP 0x5678 PUTH PUTN
+    PUTS STR("foobar")
     NOP NOP 1 NOP 0 NOP 2 NOP 0 NOP 3 NOP 0
     NOP 42 NOP 17 NOP 42 SWAP 0 DROP 33
     NOP 4711
@@ -294,7 +313,8 @@ int main() {
     // 64 PREFIX BUILD CONSTANTS (PFIX) = sh6lxor#
   case 0x00 ... 0x3F: {
     if (!prefix) push(0);
-    tos= (tos<<6) | ( (op&63) ^ (tos>>10) );
+    //tos= (tos<<6) | ( (op&63) ^ (tos>>12) );
+    tos= (tos<<6) | (op&63);
     ++prefix;
     goto isprefix; }
 
@@ -364,6 +384,29 @@ int main() {
 
 	//          1 : BEGIN   - Begin loop; inject PC+1 into R2, push old R2. 
       case 0x61: push(R); R2= pc+1; break;
+
+
+	// TODO: remove, use IO?
+	
+	//         12 : PUTH - print hex
+      case 0x6B: printf("%x ", pop());
+	++pc; goto next;
+
+	//         12 : PUTN - print number
+      case 0x6C: printf("%d ", pop());
+	++pc;; goto next;
+
+	//         13 : PUTS - print string after caller, return after
+      case 0x6D: {
+	tmp= pc;
+	while((four= bread(++tmp))) putchar(four);
+	pc= tmp+1; goto next; } // TODO: break; fails? why?
+
+	//         14 : GETCHAR
+      case 0x6E: push(getchar()); break;
+
+	//         15 : PUTCHAR
+      case 0x6F: putchar(pop()); break;
 
 	//          i : USER#   - 2-15: USER DEFINED single byte code instructions! 
       defaalt: jsr(0b1111111110000000 + 8*four); break;
