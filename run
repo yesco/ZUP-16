@@ -1,0 +1,1 @@
+clang zup.c && ./a.out
