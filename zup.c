@@ -99,11 +99,11 @@ void LIT(word a) {
   // serve
   // TODO: negative -1 opt
   int n= 0;
-  while(a) {
+  do {
     emit(a & 0b111111);
     a>>= 6;
     ++n;
-  }
+  } while(a);
   isprefix= n;
 }
 
@@ -175,6 +175,7 @@ void _SHR4()        { emit(0xE5); }
 void _SHL()         { emit(0xE6); }
 void _SHL4()        { emit(0xE7); }
 
+
 void _MUL()         { emit(0xE9); }
 void _NOP()         { emit(0xEA); }
 
@@ -183,6 +184,7 @@ void _SWAP()        { emit(0xEC); }
 void _OVER()        { emit(0xED); }
 void _TUCK()        { emit(0xEE); }
 void _DUP()         { emit(0xFF); }
+
 
 void _ADD()         { emit(0xF0); }
 void _ADC()         { emit(0xF1); }
@@ -193,6 +195,7 @@ void _AND()         { emit(0xF4); }
 void _OR()          { emit(0xF5); }
 void _XOR()         { emit(0xF6); }
 void _DROP()        { emit(0xF7); }
+
 
 void _RPOP()        { emit(0xF8); }
 void _RPUSH()       { emit(0xF9); }
@@ -205,46 +208,52 @@ void _BSWAP()       { emit(0xFD); }
 void _SIGN()        { emit(0xFE); }
 void _TRUE()        { emit(0xFF); }
 
-#define INC         _INC();
-#define DEC         _DEC();
 
-#define ROR         _ROR();
-#define ASR         _ASR();
-#define SHR         _SHR();
-#define SHR4        _SHR4();
-#define SHL         _SHL();
-#define SHL4        _SHL4();
+#define PRE        }; if (sizeof(arr)) LIT(arr[0]); }
+#define POST       { word arr[]= {
 
-#define MUL         _MUL();
+#define INC         PRE _INC(); POST
+#define DEC         PRE _DEC(); POST
 
-#define NOP         _NOP();
+#define ROR         PRE _ROR(); POST
+#define ASR         PRE _ASR(); POST
+#define SHR         PRE _SHR(); POST
+#define SHR4        PRE _SHR4(); POST
+#define SHL         PRE _SHL(); POST
+#define SHL4        PRE _SHL4(); POST
 
-#define ROT         _ROT();
-#define SWAP        _SWAP();
-#define OVER        _OVER();
-#define TUCK        _TUCK();
-#define DUP         _DUP();
 
-#define ADD         _ADD();
-#define ADC         _ADC();
-#define SUB         _SUB();
-#define FMA         _FMA();
+#define MUL         PRE _MUL(); POST
+#define NOP         PRE _NOP(); POST
 
-#define AND         _AND();
-#define OR          _OR();
-#define XOR         _XOR();
-#define DROP        _DROP();
+#define ROT         PRE _ROT(); POST
+#define SWAP        PRE _SWAP(); POST
+#define OVER        PRE _OVER(); POST
+#define TUCK        PRE _TUCK(); POST
+#define DUP         PRE _DUP(); POST
 
-#define RPOP        _RPOP();
-#define RPUSH       _RPUSH();
-#define RPEEK       _RPEEK();
 
-#define FPEEK       _FPEEK();
-#define FSET        _FSET();
+#define ADD         PRE _ADD(); POST
+#define ADC         PRE _ADC(); POST
+#define SUB         PRE _SUB(); POST
+#define FMA         PRE _FMA(); POST
 
-#define BSWAP       _BSWAP();
-#define SIGN        _SIGN();
-#define TRUE        _TRUE();
+#define AND         PRE _AND(); POST
+#define OR          PRE _OR(); POST
+#define XOR         PRE _XOR(); POST
+#define DROP        PRE _DROP(); POST
+
+
+#define RPOP        PRE _RPOP(); POST
+#define RPUSH       PRE _RPUSH(); POST
+#define RPEEK       PRE _RPEEK(); POST
+
+#define FPEEK       PRE _FPEEK(); POST
+#define FSET        PRE _FSET(); POST
+
+#define BSWAP       PRE _BSWAP(); POST
+#define SIGN        PRE _SIGN(); POST
+#define TRUE        PRE _TRUE(); POST
 
 
 #define LABEL(name) int name= wc+pc;
@@ -252,20 +261,15 @@ void _TRUE()        { emit(0xFF); }
 void setup() {
   pc= 1024; wc= 0;
 
-  LABEL(start) {
-    LIT(0);
-    LIT(1);
-    NOP
-  } LABEL(mid) {
-    LIT(42);
-    NOP
-    LABEL(later);
+  POST
+    NOP NOP 1 NOP 0 NOP 2 NOP 0 NOP 3 NOP 0
+    NOP 42 NOP 17 NOP 42 SWAP 0 DROP 33
+    NOP 4711
     TRUE
+    77
     ADD
-    LABEL(last);
-    // NZRET(&start); 
-  }
-
+    PRE
+    
   // TODO resolve labels and jumps...
 };
   
