@@ -91,11 +91,11 @@ void emit(char b) {
   isprefix= 0;
 }
 
-void NOP();
+void _NOP();
 
 void LIT(word a) {
   // protect
-  if (isprefix) NOP();
+  if (isprefix) _NOP();
   // serve
   // TODO: negative -1 opt
   int n= 0;
@@ -110,7 +110,7 @@ void LIT(word a) {
 // assumes have 16 bit addressing varaible
 // and capturing all prefix 0,1,2
 void emit16(word a, char op) {
-  if (a >= 16) LIT(a >> 4); else if (isprefix) NOP();
+  if (a >= 16) LIT(a >> 4); else if (isprefix) _NOP();
   emit(op + (a & 0xf));
 }
 
@@ -164,47 +164,87 @@ void FSHR(word i)  { emit(0xD0+i); assert(i<16); }
 void FSHL(word i)  { emit(0xD8+i); assert(i<16); }
 
 
-void INC()         { emit(0xE0); }
-void DEC()         { emit(0xE1); }
 
-void ROR()         { emit(0xE2); }
-void ASR()         { emit(0xE3); }
-void SHR()         { emit(0xE4); }
-void SHR4()        { emit(0xE5); }
-void SHL()         { emit(0xE6); }
-void SHL4()        { emit(0xE7); }
+void _INC()         { emit(0xE0); }
+void _DEC()         { emit(0xE1); }
 
+void _ROR()         { emit(0xE2); }
+void _ASR()         { emit(0xE3); }
+void _SHR()         { emit(0xE4); }
+void _SHR4()        { emit(0xE5); }
+void _SHL()         { emit(0xE6); }
+void _SHL4()        { emit(0xE7); }
 
-void MUL()         { emit(0xE9); }
-void NOP()         { emit(0xEA); }
-void ROT()         { emit(0xEB); }
-void SWAP()        { emit(0xEC); }
-void OVER()        { emit(0xED); }
-void TUCK()        { emit(0xEE); }
-void DUP()         { emit(0xFF); }
+void _MUL()         { emit(0xE9); }
+void _NOP()         { emit(0xEA); }
 
+void _ROT()         { emit(0xEB); }
+void _SWAP()        { emit(0xEC); }
+void _OVER()        { emit(0xED); }
+void _TUCK()        { emit(0xEE); }
+void _DUP()         { emit(0xFF); }
 
-void ADD()         { emit(0xF0); }
-void ADC()         { emit(0xF1); }
-void SUB()         { emit(0xF2); }
-void FMA()         { emit(0xF3); }
+void _ADD()         { emit(0xF0); }
+void _ADC()         { emit(0xF1); }
+void _SUB()         { emit(0xF2); }
+void _FMA()         { emit(0xF3); }
 
-void AND()         { emit(0xF4); }
-void OR()          { emit(0xF5); }
-void XOR()         { emit(0xF6); }
-void DROP()        { emit(0xF7); }
+void _AND()         { emit(0xF4); }
+void _OR()          { emit(0xF5); }
+void _XOR()         { emit(0xF6); }
+void _DROP()        { emit(0xF7); }
 
+void _RPOP()        { emit(0xF8); }
+void _RPUSH()       { emit(0xF9); }
+void _RPEEK()       { emit(0xFA); }
 
-void RPOP()        { emit(0xF8); }
-void RPUSH()       { emit(0xF9); }
-void RPEEK()       { emit(0xFA); }
+void _FPEEK()       { emit(0xFB); }
+void _SET()         { emit(0xFC); }
 
-void FPEEK()       { emit(0xFB); }
-void FSET()        { emit(0xFC); }
+void _BSWAP()       { emit(0xFD); }
+void _SIGN()        { emit(0xFE); }
+void _TRUE()        { emit(0xFF); }
 
-void BSWAP()       { emit(0xFD); }
-void SIGN()        { emit(0xFE); }
-void TRUE()        { emit(0xFF); }
+#define INC         _INC();
+#define DEC         _DEC();
+
+#define ROR         _ROR();
+#define ASR         _ASR();
+#define SHR         _SHR();
+#define SHR4        _SHR4();
+#define SHL         _SHL();
+#define SHL4        _SHL4();
+
+#define MUL         _MUL();
+
+#define NOP         _NOP();
+
+#define ROT         _ROT();
+#define SWAP        _SWAP();
+#define OVER        _OVER();
+#define TUCK        _TUCK();
+#define DUP         _DUP();
+
+#define ADD         _ADD();
+#define ADC         _ADC();
+#define SUB         _SUB();
+#define FMA         _FMA();
+
+#define AND         _AND();
+#define OR          _OR();
+#define XOR         _XOR();
+#define DROP        _DROP();
+
+#define RPOP        _RPOP();
+#define RPUSH       _RPUSH();
+#define RPEEK       _RPEEK();
+
+#define FPEEK       _FPEEK();
+#define FSET        _FSET();
+
+#define BSWAP       _BSWAP();
+#define SIGN        _SIGN();
+#define TRUE        _TRUE();
 
 
 #define LABEL(name) int name= wc+pc;
@@ -215,13 +255,13 @@ void setup() {
   LABEL(start) {
     LIT(0);
     LIT(1);
-    NOP();
+    NOP
   } LABEL(mid) {
     LIT(42);
-    NOP();
+    NOP
     LABEL(later);
-    TRUE();
-    ADD();
+    TRUE
+    ADD
     LABEL(last);
     // NZRET(&start); 
   }
