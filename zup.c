@@ -77,25 +77,163 @@ void ret() {
   pc= rpop();
 }
 
+#define LIT(w) w,
 
+
+#define FREAD0     0xA0,
+#define FREAD1     0xA1,
+#define FREAD2     0xA2,
+#define FREAD3     0xA3,
+#define FREAD4     0xA4,
+#define FREAD5     0xA5,
+#define FREAD6     0xA6,
+#define FREAD7     0xA7,
+#define FREAD8     0xA8,
+#define FREAD9     0xA9,
+#define FREAD10    0xAA,
+#define FREAD11    0xAB,
+#define FREAD12    0xAC,
+#define FREAD13    0xAD,
+#define FREAD14    0xAE,
+
+#define FREAD      0xAF,
+
+#define FWRITE0     0xB0,
+#define FWRITE1     0xB1,
+#define FWRITE2     0xB2,
+#define FWRITE3     0xB3,
+#define FWRITE4     0xB4,
+#define FWRITE5     0xB5,
+#define FWRITE6     0xB6,
+#define FWRITE7     0xB7,
+#define FWRITE8     0xB8,
+#define FWRITE9     0xB9,
+#define FWRITE10    0xBA,
+#define FWRITE11    0xBB,
+#define FWRITE12    0xBC,
+#define FWRITE13    0xBD,
+#define FWRITE14    0xBE,
+
+#define FWRITE      0xBF,
+
+#define FDEC0     0xC0,
+#define FDEC1     0xC1,
+#define FDEC2     0xC2,
+#define FDEC3     0xC3,
+#define FDEC4     0xC4,
+#define FDEC5     0xC5,
+#define FDEC6     0xC6,
+#define FDEC7     0xC7,
+
+#define FINC0     0xC8,
+#define FINC1     0xC9,
+#define FINC2     0xCA,
+#define FINC3     0xCB,
+#define FINC4     0xCC,
+#define FINC5     0xCD,
+#define FINC6     0xCE,
+#define FINC7     0xCF,
+
+
+#define FSHR0     0xD0
+#define FSHR1     0xD1
+#define FSHR2     0xD2
+#define FSHR3     0xD3
+#define FSHR4     0xD4
+#define FSHR5     0xD5
+#define FSHR6     0xD6
+#define FSHR7     0xD7
+
+#define FSHL0     0xD8
+#define FSHL1     0xD9
+#define FSHL2     0xDA
+#define FSHL3     0xDB
+#define FSHL4     0xDC
+#define FSHL5     0xDD
+#define FSHL6     0xDE
+#define FSHL7     0xDF
+
+
+
+#define INC 0xE0,
+#define DEC 0xE1,
+
+#define ROR  0xE2,
+#define ASR  0xE3,
+#define SHR  0xE4,
+#define SHR4 0xE5,
+#define SHL  0xE6,
+#define SHL4 0xE7,
+
+
+#define MUL  0xE9,
+#define NOP  0xEA,
+#define ROT  0xEB,
+#define SWAP 0xEC,
+#define OVER 0xED,
+#define TUCK 0xEE,
+#define DUP  0xFF,
+
+
+#define ADD 0xF0,
+#define ADC 0xF1,
+#define SUB 0xF2,
+#define FMA 0xF3,
+
+#define AND 0xF4,
+#define OR  0xF5,
+#define XOR 0xF6,
+#define DROP 0xF7,
+
+
+#define RPOP  0xF8,
+#define RPUSH 0xF9,
+#define RPEEK 0xFA,
+
+#define FPEEK 0xFB,
+#define FSET  0xFC,
+
+#define BSWAP 0xFD,
+#define SIGN  0xFE,
+#define TRUE 0xFF,
+
+
+char prog[]= {
+  LIT(0)
+  LIT(1)
+  NOP
+  LIT(42)
+  NOP
+  TRUE
+  ADD
+};
+  
 int main() {
   
-  printf("ZUP-16 Emulator\n");
+  printf("ZUP-16 Emulator\n\n");
 
-  op= 42;
+  pc= 1024;
   
+  for(int i= 0; i<sizeof(prog); ++i)
+    bwrite(pc+i, prog[i]);
+
+
  next:
   op= bread(pc);
   
   C= !!C; // normalize Carry => 0 or 1
   four= op & 0xF; // get lowest four bits
   
+  printf("%04x: %02x  %04x %04x %04x  R:%04x %04x  Fr:%04x\n",
+	 pc, op,  tos, nos, nos2,  R, R2,  fp);
+
+
   switch (op) {
 
     // 64 PREFIX BUILD CONSTANTS (PFIX) = sh6lxor#
   case 0x00 ... 0x3F: {
     if (!prefix) push(0);
-    tos= (tos<<6) ^ (op ^ 63);
+    tos= (tos<<6) | ( (op&63) ^ (tos>>10) );
     ++prefix;
     goto isprefix; }
 
