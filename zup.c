@@ -103,6 +103,72 @@ void ret() {
 // 3-Byte no checks!
 #define LIT3(n)   ((n) & 0x3F), (((n) >> 6) & 0x3F), ((n) >> 12),
 
+
+// TODO: ignoring 4 bits higher addresses...
+
+#define READ     0x40,
+#define WRITE    0x50,
+
+
+#define JSRTOP   0x60,
+#define BEGIN    0x61,
+
+#define JSR2     0x62,
+#define JSR3     0x63,
+#define JSR4     0x64,
+#define JSR5     0x65,
+#define JSR6     0x66,
+#define JSR7     0x67,
+#define JSR8     0x68,
+#define JSR9     0x69,
+#define JSR10    0x6A,
+#define JSR11    0x6B,
+#define JSR12    0x6C,
+#define JSR13    0x6D,
+#define JSR14    0x6E,
+#define JSR15    0x6F,
+
+#define JSRSHORT(w) LIT((w)>>4)  0x60+((w)&0x0f),
+#define JSRLONG(w)  LIT2((w)>>4) 0x60+((w)&0x0f),
+
+// careful with returning const lol
+#define RET        0x70,
+
+// TOD: streaming control 0x710-7f
+
+
+#define ZRET       0x80,
+#define CRET       0x84,
+#define MRET       0x88,
+#define ORET       0x8C,
+
+#define NZRET      0x90,
+#define BRET       0x94,
+#define PRET       0x98,
+#define ERET       0x9C,
+
+#define _DROP     1+
+#define _DROP0    2+
+#define _FRAME    3+
+
+
+#define ZERO      + 0,
+#define CARRY     + 4,
+#define NEG       + 8,
+#define ODD       + 12,
+
+#define NZERO     + 16,
+#define NCARRY    + 20,
+#define POS       + 24,
+#define EVEN      + 28,
+
+#define JP(win)   LIT((win)&0x3f) 0x60+((win)>>6)
+
+//#define JSRSHORT(w) LIT((w)>>4)  0x60
+//#define JSRLONG(w)  LIT2((w)>>4) 0x60+((w)&0x0f),
+
+
+
 #define FREAD0     0xA0,
 #define FREAD1     0xA1,
 #define FREAD2     0xA2,
@@ -229,6 +295,8 @@ char prog[]= {
   NOP
   TRUE
   ADD
+  _DROP NZRET
+  
 };
   
 int main() {
