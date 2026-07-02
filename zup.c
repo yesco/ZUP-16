@@ -77,8 +77,31 @@ void ret() {
   pc= rpop();
 }
 
-#define LIT(w) w,
+// 0 .. 63
+//#define LIT(n)   (n),
 
+// 64 .. 4093
+//#define LIT2(n)   ((n) & 0x3F), ((n) >> 6),
+
+// 4094 ..
+//#define LIT3(n)   ((n) & 0x3F), (((n) >> 6) & 0x3F), ((n) >> 12),
+
+
+// Helper that evaluates to 0, but forces a compile error if 'cond' is false
+#define MUST_BE(cond, msg) (sizeof(char[(cond) ? 1 : -1]) - 1)
+
+// 1-Byte Macro: Errors out if n is >= 63
+#define LIT(n) \
+    (MUST_BE((n) >= 1 && (n) < 63, "LIT value must be between 0 and 62"), (n)),
+
+// 2-Byte Macro: Errors out if n is >= 4096 (fits in 12 bits max)
+#define LIT2(n) \
+    (MUST_BE((n) > 63 && (n) < 4096, "LIT2 value must be between 63 and 4095"), \
+    ((n) & 0x3F)), \
+    ((n) >> 6),
+
+// 3-Byte no checks!
+#define LIT3(n)   ((n) & 0x3F), (((n) >> 6) & 0x3F), ((n) >> 12),
 
 #define FREAD0     0xA0,
 #define FREAD1     0xA1,
@@ -199,7 +222,7 @@ void ret() {
 
 
 char prog[]= {
-  LIT(0)
+  0,
   LIT(1)
   NOP
   LIT(42)
