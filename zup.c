@@ -9,8 +9,10 @@ word* sp= stack;
 word R, R2, fp, rstack[32];
 word* rp= rstack;
 
+word pc;
+
 char prefix= 0;
-char op;
+char op, four;
 
 uint32_t tmp, C;
 
@@ -38,6 +40,15 @@ word rpop() {
   return w;
 }
 
+void jsr(word w) {
+  rpush(pc);
+  pc= w;
+}
+
+void ret() {
+  pc= rpop();
+}
+
 
 int main() {
   
@@ -46,10 +57,11 @@ int main() {
   op= 42;
   
   C= !!C; // normalize => 0 or 1
+  four= op & 0xF;
   
   switch (op) {
 
-    // 64 PREFIX BUILD CONSTANTS (PFIX) 
+    // 64 PREFIX BUILD CONSTANTS (PFIX) = sh6lxor#
   case 0x00 ... 0x3F: {
     if (!prefix) push(0);
     tos= (tos<<6) ^ (op ^ 63);
@@ -60,14 +72,23 @@ int main() {
 
     // WRTE: CASE prefix_count OF
   case 0x50 ... 0x5F: {
-    break; }
-    //     0 (1 Byte)  : REGISTER. Addresses global slots 0 ... 15 directly. 
-    //                   Address = { 11'b000000000000, ir[3:0] } 
-    //     1 (2 Bytes) : 10 bits address read/write. Range 0-1023. 
-    //                   Address = { 0….0,   tos[5:0], ir[3:0] } 
-    //     2 (3 Bytes) : Absolute Far Write. Full 16-bit address. 
-    //                   Address = {   tos[11:0],      ir[3:0] } 
+    switch (prefix) {
 
+      //     0 (1 Byte)  : REGISTER. Addresses global slots 0 ... 15 directly. 
+      //                   Address = { 11'b000000000000, ir[3:0] } 
+    case 0: break;
+
+      //     1 (2 Bytes) : 10 bits address read/write. Range 0-1023. 
+      //                   Address = { 0….0,   tos[5:0], ir[3:0] }
+    case 1: break;
+
+      //     2 (3 Bytes) : Absolute Far Write. Full 16-bit address. 
+      //                   Address = {   tos[11:0],      ir[3:0] }
+    case 2: break;
+
+    }
+      
+    break; }
     //   * SIGN BIT: WORD / BYTE ADDRESSING using indexed slots 
     //       0 : WORD INDEX 15-bit hardware words. 64KB 
     //       1 : BYTE INDEX 15-bit bytes.          32KB 
@@ -77,18 +98,25 @@ int main() {
     // 16 SUBROUTINES (jsr)
   case 0x60 ... 0x6F:
     // 0x60 ... 0x6F    : CASE prefix_count OF 
-    //     0 (1 Byte)  : Fast Vector JSR# (0-15) to Top of Memory, 8 byte slots, 
-    //                   Address = { 9'b111111111, ir[3:0], 3'b000 } 
-    //        SPECIAL VECTORS  
-    //          0 : JSRTOS  - Jump SubRoutine to TOS. Method dispatch. 
-    //          1 : BEGIN   - Begin loop; inject PC+1 into R2, push old R2. 
-    //          i : USER#   - 2-15: USER DEFINED single byte code instructions! 
-        
-    //     1 (2 Bytes) : Absolute Near JSR (Replaces lower 10 bits of PC). 
-    //                   Address = { PC[15:10], tos[5:0], ir[3:0] } 
+    switch (prefix) {
 
-    //     2 (3 Bytes) : Absolute Far JSR (Full 16-bit address overwrite). 
-    //                   Address = {        tos[11:0]   , ir[3:0] } 
+      //     0 (1 Byte)  : Fast Vector JSR# (0-15) to Top of Memory, 8 byte slots, 
+      //                   Address = { 9'b111111111, ir[3:0], 3'b000 } 
+      //        SPECIAL VECTORS  
+      //          0 : JSRTOS  - Jump SubRoutine to TOS. Method dispatch. 
+      //          1 : BEGIN   - Begin loop; inject PC+1 into R2, push old R2. 
+      //          i : USER#   - 2-15: USER DEFINED single byte code instructions! 
+    case 0: jsr(0b1111111110000000 + 8*four); break;
+
+      //     1 (2 Bytes) : Absolute Near JSR (Replaces lower 10 bits of PC). 
+      //                   Address = { PC[15:10], tos[5:0], ir[3:0] } 
+    case 1: jsr((tos<<4) | four); break; // TODO: fix relative window?
+
+      //     2 (3 Bytes) : Absolute Far JSR (Full 16-bit address overwrite). 
+      //                   Address = {        tos[11:0]   , ir[3:0] } 
+    case 2: jsr((tos<<4) | four); break; // TODO: fix
+
+    }
 
     // 16 SPECIALISED STREAMING CONTROL FUNCTIONS
   case 0x70 ... 0x7F: {
@@ -160,16 +188,16 @@ int main() {
   case 0xA0 ... 0xDF: {
     break; }
     // 0xA0 ... 0xAE    : fread#      0 ... 14 : Reads slot (FR + index) to TOS. 
-    // 0XAF          : fread             : -”-, index=TOS or prefix 1-2 bytes. 
+    // 0XAF             : fread                : -”-, index=TOS or prefix 1-2 bytes. 
     // 0xB0 ... 0xBE    : fwrite#     0 ... 14 : Copy & keep TOS to slot (FR + index). 
-    // 0XAF          : fread             : -”-, index=TOS or prefix 1-2 bytes. 
+    // 0XAF             : fread                : -”-, index=TOS or prefix 1-2 bytes. 
     // 0xC0 ... 0xC7    : fread#dec   0 ...  7 : Reads slot. Push val-1 
     // 0xC8 ... 0xCF    : fread#inc   0 ...  7 : Reads slot. Push val+1 
     // 0xD0 ... 0xD7    : fshr#       0 ...  7 : Reads slot. Push shr, spills to C. 
     // 0xD8 ... 0xDF    : fshl#       0 ...  7 : Reads slot. Push shl, spills to C. 
 
 
-    //16 REGISTER MANIPULATION & STACK SHORTCUTS (Ode to 6502 Mapping)
+    // == REGISTER MANIPULATION & STACK SHORTCUTS (Ode to 6502 Mapping)
 
   case 0xE0: tos++; break; // inc      - Increment TOS by 1.
   case 0xE1: tos--; break; // dec      - Decrement TOS by 1.
@@ -193,7 +221,7 @@ int main() {
   case 0xEB: tmp= tos; tos= nos; nos= nos2; nos2= tmp; break;
 
     // tuck     - Insert a copy of TOS underneath NOS. 
-    // >R DUP R> SWAP
+    // ">R DUP R> SWAP"
   case 0xEE: tmp= pop(); push(tos); push(tmp); 
     // fall through to SWAP!
     // swap     - Exchange the positions of TOS and NOS.
@@ -201,7 +229,7 @@ int main() {
 
 
   case 0xED: push(nos); break;  // over     - Copy NOS to the top of the stack.
-  case 0xEF: push(tos); break; // dup      - Duplicate TOS.
+  case 0xEF: push(tos); break;  // dup      - Duplicate TOS.
 
     // [0xF0 - 0xF7] : 8 MATH & LOGIC ALU CORE INSTRUCTIONS (a b -> c) 
     // add     - C; Push (NOS + TOS) to stack.
