@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 
 typedef uint16_t word;
 
@@ -77,238 +78,163 @@ void ret() {
   pc= rpop();
 }
 
-// 0 .. 63
-//#define LIT(n)   (n),
 
-// 64 .. 4093
-//#define LIT2(n)   ((n) & 0x3F), ((n) >> 6),
+// assembler!
 
-// 4094 ..
-//#define LIT3(n)   ((n) & 0x3F), (((n) >> 6) & 0x3F), ((n) >> 12),
+word wc= 0;
+char isprefix= 0;
 
+void emit(char b) {
+  bwrite(pc+wc, b);
+  ++wc;
 
-// Helper that evaluates to 0, but forces a compile error if 'cond' is false
-#define MUST_BE(cond, msg) (sizeof(char[(cond) ? 1 : -1]) - 1)
+  isprefix= 0;
+}
 
-// 1-Byte Macro: Errors out if n is >= 63
-#define LIT(n) \
-    (MUST_BE((n) >= 1 && (n) < 63, "LIT value must be between 0 and 62"), (n)),
+void NOP();
 
-// 2-Byte Macro: Errors out if n is >= 4096 (fits in 12 bits max)
-#define LIT2(n) \
-    (MUST_BE((n) > 63 && (n) < 4096, "LIT2 value must be between 63 and 4095"), \
-    ((n) & 0x3F)), \
-    ((n) >> 6),
+void LIT(word a) {
+  // protect
+  if (isprefix) NOP();
+  // serve
+  // TODO: negative -1 opt
+  int n= 0;
+  while(a) {
+    emit(a & 0b111111);
+    a>>= 6;
+    ++n;
+  }
+  isprefix= n;
+}
 
-// 3-Byte no checks!
-#define LIT3(n)   ((n) & 0x3F), (((n) >> 6) & 0x3F), ((n) >> 12),
+// assumes have 16 bit addressing varaible
+// and capturing all prefix 0,1,2
+void emit16(word a, char op) {
+  if (a >= 16) LIT(a >> 4); else if (isprefix) NOP();
+  emit(op + (a & 0xf));
+}
 
-
-// TODO: ignoring 4 bits higher addresses...
-
-#define READ     0x40,
-#define WRITE    0x50,
-
-
-#define JSRTOP   0x60,
-#define BEGIN    0x61,
-
-#define JSR2     0x62,
-#define JSR3     0x63,
-#define JSR4     0x64,
-#define JSR5     0x65,
-#define JSR6     0x66,
-#define JSR7     0x67,
-#define JSR8     0x68,
-#define JSR9     0x69,
-#define JSR10    0x6A,
-#define JSR11    0x6B,
-#define JSR12    0x6C,
-#define JSR13    0x6D,
-#define JSR14    0x6E,
-#define JSR15    0x6F,
-
-#define JSRSHORT(w) LIT((w)>>4)  0x60+((w)&0x0f),
-#define JSRLONG(w)  LIT2((w)>>4) 0x60+((w)&0x0f),
-
-// careful with returning const lol
-#define RET        0x70,
-
-// TOD: streaming control 0x710-7f
+void READ(word a)  { emit16(a, 0x40); }
+void WRITE(word a) { emit16(a, 0x50); }
 
 
-#define ZRET       0x80,
-#define CRET       0x84,
-#define MRET       0x88,
-#define ORET       0x8C,
-
-#define NZRET      0x90,
-#define BRET       0x94,
-#define PRET       0x98,
-#define ERET       0x9C,
-
-#define _DROP     1+
-#define _DROP0    2+
-#define _FRAME    3+
+void JSR(word a)   { emit16(a, 0x60); }
+void EXEC()        { JSR(0); }
+void BEGIN()       { JSR(1); }
 
 
-#define ZERO      + 0,
-#define CARRY     + 4,
-#define NEG       + 8,
-#define ODD       + 12,
+void RET(word c)   { emit(0x70+c); assert(c<32); }
 
-#define NZERO     + 16,
-#define NCARRY    + 20,
-#define POS       + 24,
-#define EVEN      + 28,
+void ZRET() { RET( 0); }
+void CRET() { RET( 4); }
+void NRET() { RET( 8); }
+void ORET() { RET(12); }
 
-#define JP(win)   LIT((win)&0x3f) 0x60+((win)>>6)
-
-//#define JSRSHORT(w) LIT((w)>>4)  0x60
-//#define JSRLONG(w)  LIT2((w)>>4) 0x60+((w)&0x0f),
+void NZRET() { RET(16); }
+void NCRET() { RET(20); }
+void PRET()  { RET(24); }
+void ERET()  { RET(28); }
 
 
+void JP(word cond, word lab) {
+  // TODO:
+  emit(lab-wc);
+  emit(0x80+cond);
+}
 
-#define FREAD0     0xA0,
-#define FREAD1     0xA1,
-#define FREAD2     0xA2,
-#define FREAD3     0xA3,
-#define FREAD4     0xA4,
-#define FREAD5     0xA5,
-#define FREAD6     0xA6,
-#define FREAD7     0xA7,
-#define FREAD8     0xA8,
-#define FREAD9     0xA9,
-#define FREAD10    0xAA,
-#define FREAD11    0xAB,
-#define FREAD12    0xAC,
-#define FREAD13    0xAD,
-#define FREAD14    0xAE,
+void ZJP(word lab)     { JP( 0, lab); }
+void CJP(word lab)     { JP( 4, lab); }
+void NJP(word lab)     { JP( 8, lab); }
+void OJP(word lab)     { JP(12, lab); }
 
-#define FREAD      0xAF,
-
-#define FWRITE0     0xB0,
-#define FWRITE1     0xB1,
-#define FWRITE2     0xB2,
-#define FWRITE3     0xB3,
-#define FWRITE4     0xB4,
-#define FWRITE5     0xB5,
-#define FWRITE6     0xB6,
-#define FWRITE7     0xB7,
-#define FWRITE8     0xB8,
-#define FWRITE9     0xB9,
-#define FWRITE10    0xBA,
-#define FWRITE11    0xBB,
-#define FWRITE12    0xBC,
-#define FWRITE13    0xBD,
-#define FWRITE14    0xBE,
-
-#define FWRITE      0xBF,
-
-#define FDEC0     0xC0,
-#define FDEC1     0xC1,
-#define FDEC2     0xC2,
-#define FDEC3     0xC3,
-#define FDEC4     0xC4,
-#define FDEC5     0xC5,
-#define FDEC6     0xC6,
-#define FDEC7     0xC7,
-
-#define FINC0     0xC8,
-#define FINC1     0xC9,
-#define FINC2     0xCA,
-#define FINC3     0xCB,
-#define FINC4     0xCC,
-#define FINC5     0xCD,
-#define FINC6     0xCE,
-#define FINC7     0xCF,
+void NZJP(word lab)    { JP(16, lab); }
+void NCJP(word lab)    { JP(20, lab); }
+void PJP(word lab)     { JP(24, lab); }
+void EJP(word lab)     { JP(28, lab); }
 
 
-#define FSHR0     0xD0
-#define FSHR1     0xD1
-#define FSHR2     0xD2
-#define FSHR3     0xD3
-#define FSHR4     0xD4
-#define FSHR5     0xD5
-#define FSHR6     0xD6
-#define FSHR7     0xD7
+// TODO: prefixes? limit, 15 special
+void FREAD(word i) { emit16(0xA0, i); }
+void FWRITE(word i){ emit16(0xB0, i); }
 
-#define FSHL0     0xD8
-#define FSHL1     0xD9
-#define FSHL2     0xDA
-#define FSHL3     0xDB
-#define FSHL4     0xDC
-#define FSHL5     0xDD
-#define FSHL6     0xDE
-#define FSHL7     0xDF
+void FDEC(word i)  { emit(0xC0+i); assert(i<16); }
+void FINC(word i)  { emit(0xC8+i); assert(i<16); }
+
+void FSHR(word i)  { emit(0xD0+i); assert(i<16); }
+void FSHL(word i)  { emit(0xD8+i); assert(i<16); }
 
 
+void INC()         { emit(0xE0); }
+void DEC()         { emit(0xE1); }
 
-#define INC 0xE0,
-#define DEC 0xE1,
-
-#define ROR  0xE2,
-#define ASR  0xE3,
-#define SHR  0xE4,
-#define SHR4 0xE5,
-#define SHL  0xE6,
-#define SHL4 0xE7,
-
-
-#define MUL  0xE9,
-#define NOP  0xEA,
-#define ROT  0xEB,
-#define SWAP 0xEC,
-#define OVER 0xED,
-#define TUCK 0xEE,
-#define DUP  0xFF,
+void ROR()         { emit(0xE2); }
+void ASR()         { emit(0xE3); }
+void SHR()         { emit(0xE4); }
+void SHR4()        { emit(0xE5); }
+void SHL()         { emit(0xE6); }
+void SHL4()        { emit(0xE7); }
 
 
-#define ADD 0xF0,
-#define ADC 0xF1,
-#define SUB 0xF2,
-#define FMA 0xF3,
-
-#define AND 0xF4,
-#define OR  0xF5,
-#define XOR 0xF6,
-#define DROP 0xF7,
+void MUL()         { emit(0xE9); }
+void NOP()         { emit(0xEA); }
+void ROT()         { emit(0xEB); }
+void SWAP()        { emit(0xEC); }
+void OVER()        { emit(0xED); }
+void TUCK()        { emit(0xEE); }
+void DUP()         { emit(0xFF); }
 
 
-#define RPOP  0xF8,
-#define RPUSH 0xF9,
-#define RPEEK 0xFA,
+void ADD()         { emit(0xF0); }
+void ADC()         { emit(0xF1); }
+void SUB()         { emit(0xF2); }
+void FMA()         { emit(0xF3); }
 
-#define FPEEK 0xFB,
-#define FSET  0xFC,
-
-#define BSWAP 0xFD,
-#define SIGN  0xFE,
-#define TRUE 0xFF,
+void AND()         { emit(0xF4); }
+void OR()          { emit(0xF5); }
+void XOR()         { emit(0xF6); }
+void DROP()        { emit(0xF7); }
 
 
-char prog[]= {
-  0,
-  LIT(1)
-  NOP
-  LIT(42)
-  NOP
-  TRUE
-  ADD
-  _DROP NZRET
-  
+void RPOP()        { emit(0xF8); }
+void RPUSH()       { emit(0xF9); }
+void RPEEK()       { emit(0xFA); }
+
+void FPEEK()       { emit(0xFB); }
+void FSET()        { emit(0xFC); }
+
+void BSWAP()       { emit(0xFD); }
+void SIGN()        { emit(0xFE); }
+void TRUE()        { emit(0xFF); }
+
+
+#define LABEL(name) int name= wc+pc;
+
+void setup() {
+  pc= 1024; wc= 0;
+
+  LABEL(start) {
+    LIT(0);
+    LIT(1);
+    NOP();
+  } LABEL(mid) {
+    LIT(42);
+    NOP();
+    LABEL(later);
+    TRUE();
+    ADD();
+    LABEL(last);
+    // NZRET(&start); 
+  }
+
+  // TODO resolve labels and jumps...
 };
   
 int main() {
   
   printf("ZUP-16 Emulator\n\n");
 
-  pc= 1024;
+  setup();
   
-  for(int i= 0; i<sizeof(prog); ++i)
-    bwrite(pc+i, prog[i]);
-
-
  next:
   op= bread(pc);
   
