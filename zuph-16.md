@@ -1,3 +1,116 @@
+ZUPH-16 Zero Utility Processor: Hashing Optimized Prefix Instruction Set Computer - ZUPHOPISC
+=============================================================================================
+Ztack Unicorn Processor (?)
+
+Byte-coded dual-stack-machine intended to be implementd on FPGA Tang nano 20K.
+
+16-bit (extensible to 64), pure single-byte, single-cycle instruction flow,
+using flexible 7-bit-prefix-encoding sliding in literals into instructions.
+
+Thus an instruction may have a literal-load first, and depending on
+number of prefixes can perform slightly different tasks.
+
+OP-code space divided into two halves; first for building literal numbers
+7-bits at a time; and second for: bits+alu+stackops, control-flow,
+memory, hashing. 
+
+Unusualies
+==========
+ZUP has tried to take an untradition approach to a Forth-style CPU
+than the J1 FPGA-implementation, for examploe. Instead of 16-bit VLIW,
+that eases instruction decoding, we have a efficient but very hiearchical
+instruction space achieving almost equal benefits. Because J1 decodes
+instructions and then performs memory in practice it seems to have 2-cycle
+erad and writes (?). ZUP avoids this using a by-pass, and should operate lightly
+below double speed.
+
+Many operations use an inline 4-bit literal argument. With this, slot-reading
+and writing using a frame-pointer, or other register source gives single-byte,
+single-cycle access.
+
+Conditional jumps are extendeded to returns. Returns are mere single-byte
+jumps pulling from the return-stack. Jumps are efficiently encoded as sliding-
+window slot-in bit-replacing simple routing - avoiding costly full-adders.
+
+Combined equal-test-and-jump are encoded for maximum utilty, allowing for
+fast switch-case implementations.
+
+In addition, specific looping constructs have been added, these are
+super-power single instructions counting/comparing auto-streamers.
+Ultimately,if the loopback is to the same instruction, a single-cycle
+pipe-lined copy operation is realized. Likewise for double stream compare,
+cycle-delays, bit-normalizations and -counting, as well as byte-searches.
+Ultimately costing one cycle per step.
+
+Larger literal arguments to instructions are built in TOS on the stack.
+This takes 1 cycle per byte. Thus a 16-bit operation may need 3 cycles.
+This may however be optimized by peep-holed execution, at slight extra
+cost.
+
+It is recognized that compilers might need be slightly more intelligent
+than typical; merging (constant-)test-and-jmp or -returns into simple
+efficient super instructions. But these represent highly-recognized and
+repetetive patterns in both generated code as well as typical hand-written
+Forth code.
+
+It is the hope of the author that this experimental compact byte-code
+machine might prove useful for embedded systems as well as sipmlify
+compilation even for non-stack languages by providing powerful, compact
+often used stack/frame/object operations.
+
+Preliminary analysis of static byte-code codebases indicate the match:
+- BYTES% (CYCLE%) ACTION
+- 35-50% ( 5-10%) local frame accesses
+- 15-35% (......) constants/addresses/literals
+- 10-20% (35-45%) of instructions are control flow related (jsr/jmp/methods/ret)
+- 10-18% (25-35%) memory accesses
+- 10-15% (    5%) misc
+-  8-15% (10-15%) arithmetic/register manipulations
+- lower hanging items:
+-  2- 4% ( 1- 2%) type casting/conversions (float2int promotef64 checkcast relevant for JVM)
+-   < 1% ( 5-10%) exception handling
+-  0- 2% (15-30%) synchronization/atomnics, multi-core
+
+(Note: byte ranges are widened covering both static & dynamic codes)
+
+It is believed that our ISA achieves: [Total Byte Footprint]
+- Local Frame Access (LOAD0-15) [25%]
+- Fused Literals/Addresses      [12%]
+- Control Flow (Jumps/Sub)      [18%]
+- Streaming/Super-Inst          [20%]
+- Stack/Arithmetic/Misc         [25%]
+
+
+
+------------ OVERFIEW
+
+
+Bits      Pre  Mnemonic   Description
+
+0 iiiiiii  -    LIT#       Accumulate 7-bit literal; if prefix_count=0 push new, else shift TOS left 7 and XOR inject
+
+(each grouping 32 instructions:)
+
+100 0iiii  -    TOGGLE/POW Toggle bit (15 - iiii) of TOS; old bit moves to carry register
+100 1iiii  -    LOOP       Looping and Streaming Instructions
+
+101 0iiii  -    JSR        Jump SubRoutine
+101 1ncca  -    RET/BRANCH Conditional Branch and Return
+
+110 0iiii  -    READ       Read memory
+110 1iiii  -    WRITE      Write memory
+
+111 00iii  -    -          ALU
+111 01iii  -    -          stack
+111 10iii  -    -          rstack
+111 11iii  -               FREE
+111 11110  ?    HASH       Hashing/Crypto/Extended Math related ops
+111 11111  -    TRUE       Push -1; if prefix_count > 0, shift TOS left 7 and XOR invert full register contents
+
+
+
+------------ DETAILS
+
 Bits      Pre  Mnemonic   Description
 
 128:
@@ -18,14 +131,12 @@ Bits      Pre  Mnemonic   Description
 16:
 
 ????????  0    IREAD      Indexed Read  (TOS+NOS)
-????????  1    IWRITE     Indexed Write (TOS+NOS)
+????????  0    IWRITE     Indexed Write (TOS+NOS)
 
 10010xxx  0    -          stack ...
 10011xxx  0    -          rstack...
-
 10010xxx  1    -          FREE!
 10011xxx  1    -          FREE!
-
 10010xxx  2    -          FREE!
 10011xxx  2    -          FREE!
 
@@ -65,8 +176,8 @@ Bits      Pre  Mnemonic   Description
 
 8:
 
-11010iii  0    FPWRITE#   Write TOS data to memory address (FP + iii); pop stack
-110100rr  1    ZPWRITE    Write TOS data to 9-bit address (7-bit prefix + rr); pop stack
+11010iii  0    FWRITE#    Write TOS data to memory address (FP + iii); pop stack
+110100rr  1    ZWRITE     Write TOS data to 9-bit address (7-bit prefix + rr); pop stack
 110100rr  2    WRITE      Write TOS data to full 16-bit address (14-bit template + rr); pop stack
 
 8:
@@ -97,7 +208,10 @@ Bits      Pre  Mnemonic   Description
 11100100  -    SWAP8      Swap upper and lower 8-bit halves of TOS (Endian flip)
 11100101  -    SWAP4      Swap adjacent 4-bit nibbles across full TOS
 11100110  -    SWAP2      Swap adjacent 2-bit pairs across full TOS
-11100111  -    ROT1       Rotate full TOS left by exactly 1 bit
+11100111  -    ROT1       Rotate full TOS left by exactly 1 bit (TODO: ROR more important!!!)
+
+
+== This is extended HASH/CRYPTO (save OPs: move to a "prefix" instr)
 
 
 8:
@@ -137,6 +251,7 @@ Bits      Pre  Mnemonic   Description
 11111101  -    MULDIF1    Feistel avalanche: Multiply lower 8 bits of TOS/NOS, ADD result to full TOS via carry chain
 
 11111110  -    WEYL       Cryptographic Weyl-addition mix step: TOS <= (ROL_AMT(NOS) ^ TOS) + 16'h9E37; pop NOS
+
 11111111  -    TRUE       Push -1; if prefix_count > 0, shift TOS left 7 and XOR invert full register contents
 
 
