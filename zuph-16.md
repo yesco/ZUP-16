@@ -1,5 +1,6 @@
 ZUPH-16 Zero Utility Processor: Hashing Optimized Prefix Instruction Set Computer - ZUPHOPISC
 =============================================================================================
+
 Ztack Unicorn Processor (?)
 
 Byte-coded dual-stack-machine intended to be implementd on FPGA Tang nano 20K.
@@ -14,8 +15,10 @@ OP-code space divided into two halves; first for building literal numbers
 7-bits at a time; and second for: bits+alu+stackops, control-flow,
 memory, hashing. 
 
+
 Unusualies
 ==========
+
 ZUP has tried to take an untradition approach to a Forth-style CPU
 than the J1 FPGA-implementation, for examploe. Instead of 16-bit VLIW,
 that eases instruction decoding, we have a efficient but very hiearchical
@@ -58,7 +61,12 @@ machine might prove useful for embedded systems as well as sipmlify
 compilation even for non-stack languages by providing powerful, compact
 often used stack/frame/object operations.
 
+
+Statistics
+----------
+
 Preliminary analysis of static byte-code codebases indicate the match:
+
 - BYTES% (CYCLE%) ACTION
 - 35-50% ( 5-10%) local frame accesses
 - 15-35% (......) constants/addresses/literals
@@ -82,7 +90,8 @@ It is believed that our ISA achieves: [Total Byte Footprint]
 
 
 
------------- OVERFIEW
+
+------------ OVERVIEW
 
 
 Bits      Pre  Mnemonic   Description
@@ -144,14 +153,14 @@ Bits      Pre  Mnemonic   Description
 16:
 
 1010iiii  0    JSR#       Jump SubRoutine 0-15, 1 cycle, 1 byte custom user routines
-1010wwii  1    JSR        Jump SubRoutine window address= replace bits {ww+1 bits if 0, prefix, ii, 000}
-1010iiii  2    JSR        Jump SubRoutine absolute 16-bit={2 prefix,iiii}
+1010wwaa  1    JSR        Jump SubRoutine window address= replace bits {ww+1 bits if 0, prefix, ii, 000}
+1010ccaa  2    JSR        Jump SubRoutine absolute 16-bit={14-bit 2 prefix, ii}
 
 16:
 
 1011ncca  0    %RET       Conditional Return w single optional Action (nip? or 0ret drop0ret)
 1011ncca  1    %BRANCH    Conditional Branch displace address with ww*256-256 | prefix, w optional Action: keep?
-1011ncci  2    !BRANCH    Branch if first prefix is not equal to TOS, second prefix use as in %BRANCH
+1011ncca  2    !BRANCH    Branch if first prefix is not equal to TOS, second prefix use as in %BRANCH
 
 
 8:
@@ -163,40 +172,41 @@ Bits      Pre  Mnemonic   Description
 8:
 
 110010rr  0    REG#       Read internal register file index (rr) into TOS (No external RAM bus action)
-110010rr  1    #READ      Read memory from address (Register 0 + 6-bit prefix index) into TOS
+110010rr  1    #READ#     Read memory from address (Register 0 + 7-bit prefix index) into TOS
+110110rr  2    -
 
-1100110r  0    RREADINC   Read memory from address in Reg (r), then automatically increment Reg value by 1
-1100111r  0    RREADDEC   Automatically decrement Reg (r) value by 1, then read memory at that new address
+1100110r  0  0/1-RINC     Read memory from address in Reg (r), then automatically increment Reg value by 1
+1100111r  0  2/3-RDEC     Automatically decrement Reg (r) value by 1, then read memory at that new address
 
-11001100  1    TREAD      Read memory from address (TOS + 6-bit prefix index) into TOS
-11001101  1    NREAD      Read memory from address (NOS + 6-bit prefix index) into TOS
-11001110  1    RSTKREAD   Read memory from address (R_TOS + 6-bit prefix index) into TOS
-11001111  1    FPREAD     Read memory from address (FP + 6-bit prefix index) into TOS
+11001100  1    TREAD      Read memory from address (TOS + 7-bit prefix index) into TOS
+11001101  1    NREAD      Read memory from address (NOS + 7-bit prefix index) into TOS
+11001110  1    RSTKREAD   Read memory from address (ROS + 7-bit prefix index) into TOS
+11001111  1    FPREAD     Read memory from address (FP  + 7-bit prefix index) into TOS
 
 
 8:
 
 11010iii  0    FWRITE#    Write TOS data to memory address (FP + iii); pop stack
-110100rr  1    ZWRITE     Write TOS data to 9-bit address (7-bit prefix + rr); pop stack
-110100rr  2    WRITE      Write TOS data to full 16-bit address (14-bit template + rr); pop stack
+110100rr  1    ZWRITE     Write TOS data to 9-bit address (7-bit prefix, rr); pop stack
+110100rr  2    WRITE      Write TOS data to full 16-bit address (14-bit 2 prefixes, rr); pop stack
 
 8:
 
 110110rr  0    WREG#      Write TOS data directly into internal register file index (rr); pop stack
-11011000  1    0WRITE#    Write TOS data to address (Register 0 + 6-bit prefix index); pop stack
-11011001  1    1WRITE#    Write TOS data to address (Register 1 + 6-bit prefix index); pop stack
-11011010  1    2WRITE#    Write TOS data to address (Register 2 + 6-bit prefix index); pop stack
-11011011  1    3WRITE#    Write TOS data to address (Register 3 + 6-bit prefix index); pop stack
+110110rr  1    #WRITE#    Write TOS data to address (Register 0 + 7-bit prefix index); pop stack
 110110rr  2    -
 
-1101110r  0    RWRINC     Write TOS data to address in Reg (r), then automatically increment Reg value by 1
-1101111r  0    RWRDEC     Automatically decrement Reg (r) value by 1, then write TOS data to that new address
-11011100  1    TWRITE#    Write TOS data to address (TOS + 6-bit prefix index); pop stack
-11011101  1    NWRITE#    Write TOS data to address (NOS + 6-bit prefix index); pop stack
-11011110  1    RWRITE#    Write TOS data to address (R_TOS + 6-bit prefix index); pop stack
-11011111  1    FWRITE#    Write TOS data to address (FP + 6-bit prefix index); pop stack
+1101110r  0  0/1-WINC     Write TOS data to address in Reg (r), then automatically increment Reg value by 1
+1101111r  0  2/3-WDEC     Automatically decrement Reg (r) value by 1, then write TOS data to that new address
+11011100  1    TWRITE#    Write TOS data to address (TOS + 7-bit prefix index); pop stack
+11011101  1    NWRITE#    Write TOS data to address (NOS + 7-bit prefix index); pop stack
+11011110  1    RWRITE#    Write TOS data to address (ROS + 7-bit prefix index); pop stack
+11011111  1    FWRITE#    Write TOS data to address (FP  + 7-bit prefix index); pop stack
 110111r   2    -
 
+
+== This is extended HASH/CRYPTO (save OPs: move to a "prefix" instr)
+(32:)
 
 8:
 
@@ -209,9 +219,6 @@ Bits      Pre  Mnemonic   Description
 11100101  -    SWAP4      Swap adjacent 4-bit nibbles across full TOS
 11100110  -    SWAP2      Swap adjacent 2-bit pairs across full TOS
 11100111  -    ROT1       Rotate full TOS left by exactly 1 bit (TODO: ROR more important!!!)
-
-
-== This is extended HASH/CRYPTO (save OPs: move to a "prefix" instr)
 
 
 8:
