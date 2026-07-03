@@ -134,33 +134,81 @@ Bits      Pre  Mnemonic   Description
 1000iiii  -    TOGGLE#    Toggle bit (15 - iiii) of TOS; old bit moves to carry register
 10000000  1    POW        1>>TOS (modifies instruction decoding from data)
 10000001  1    CSET       Set bit (15 - iiii) TOS of NOS equal to current carry register value
-1000iiii  1    -          FREE
+1000iiii  1    -          prefix FREE 2-15
 
 
 16:
 
-????????  0    IREAD      Indexed Read  (TOS+NOS)
-????????  0    IWRITE     Indexed Write (TOS+NOS)
-
-10010xxx  0    -          stack ...
-10011xxx  0    -          rstack...
-10010xxx  1    -          FREE!
-10011xxx  1    -          FREE!
-10010xxx  2    -          FREE!
-10011xxx  2    -          FREE!
+1001xxxx  0    LOOPS      TODO: Loops and Streams TODO: see prev design
 
 
 16:
 
-1010iiii  0    JSR#       Jump SubRoutine 0-15, 1 cycle, 1 byte custom user routines
-1010wwaa  1    JSR        Jump SubRoutine window address= replace bits {ww+1 bits if 0, prefix, ii, 000}
-1010ccaa  2    JSR        Jump SubRoutine absolute 16-bit={14-bit 2 prefix, ii}
+10100000  0    CALL       Calls subroutin in TOS (method dispatch) (Forth: EXEC)
+10100001  0    BEGIN      Begin a loop; Push PC+1 into rstack below R!
+1010iiii  0    JSR#       Jump SubRoutine 2-15, 1 cycle, 1 byte custom user routines
+
+1010wwii  1    JSR#       Jump SubRoutine window address= replace bits {ww+1 bits if 0, prefix, ii, 000}
+1010ccii  2    JSR#       Jump SubRoutine absolute 16-bit={14-bit 2 prefix, ii}
+    00       Always
+    01       NZ
+    10       DUP-JSR
+    11       FJSR         Frame Jump SubRoutine Push: push(fp); fp= sp; rpush(pc); pc= new;
+
+FJSR who clean up the stack?
+    
 
 16:
 
-1011ncca  0    %RET       Conditional Return w single optional Action (nip? or 0ret drop0ret)
-1011ncca  1    %BRANCH    Conditional Branch displace address with ww*256-256 | prefix, w optional Action: keep?
-1011ncca  2    !BRANCH    Branch if first prefix is not equal to TOS, second prefix use as in %BRANCH
+1011cccc  0    %RET       Conditional Return w single optional Action (nip? or 0ret drop0ret)
+    0000       RET        Uncondition Return
+    0001       NIP-RET    Keep TOS, NIP one value, Return TOS
+    0010       DROP-RET   Disguard TOS, Return "nos"
+    0011       DROP-0-RET Disguard TOS, Return 0
+
+    0100       CRET       Return on Carry
+    0101       NCRET      Return no No Carry
+    0110       EVENRET       
+    0111       ODDRET
+
+    1000       ZRET       Return on Zero  (keep) => 0
+    1010       ZDROP-RET                  (drop) => nos "nip"?
+    1001       NZRET      Return if NZero (keep) "HAVE-RET"
+    1011       NZDROP-RET Return if NZero (drop) "IGNORE-RET"
+
+
+ (these may not be possible as they reset stack so NOS=??? TOS can keep as return value:)
+ (possibly look into some ObjectRET instead? FP= pop)
+    1100       FRET       Frame Return: sp= fp; fp= stack[fp]; pc= rpop; keep TOS, NOS??? impossible
+    1110       ZFRET      Frame Return on Zero stack[fp]
+    1111       F-0-RET    Return 0, Frame        (replace stored fp with 0, keep) ?
+    1111       FGET-RET   Object Return from Frame Pointer
+    
+
+1011ccci  1    %BRANCH    Conditional Branch displace address with ww*256-256 | prefix, w optional Action: keep?
+    000        BRANCH     Unconditional Jump
+
+    001        NZJP       On Non Zero Jump    (keep)
+    010        ZJP        On Zero Jump        (keep)
+    011        ZJPDROP    On Zero Jump        (drop)
+
+    100        CJP        On Carry Jump
+    101        NCJP       On Not Carry Jump
+
+    110        EJP        On Even Jump        (keep)
+    111        OJP        On Odd Jump         (keep)
+    
+
+1011ccci  2    %IF       Branch past if first prefix #constant NOT MATCH TOS, second prefix use as in %BRANCH
+    000        #=IF       Branch past if not #const =
+    001        #<IF       Branch past if not #const <
+    010        #BIF       Branch past if Bit #const is not set (0-15)
+    011        #&IF       Branch past if mask & is 0
+
+    100        #!=IF
+    101        #>=IF         to compare > just modify constant!
+    110        #B!IF
+    111        #&!IF
 
 
 8:
@@ -178,10 +226,11 @@ Bits      Pre  Mnemonic   Description
 1100110r  0  0/1-RINC     Read memory from address in Reg (r), then automatically increment Reg value by 1
 1100111r  0  2/3-RDEC     Automatically decrement Reg (r) value by 1, then read memory at that new address
 
-11001100  1    TREAD      Read memory from address (TOS + 7-bit prefix index) into TOS
-11001101  1    NREAD      Read memory from address (NOS + 7-bit prefix index) into TOS
-11001110  1    RSTKREAD   Read memory from address (ROS + 7-bit prefix index) into TOS
-11001111  1    FPREAD     Read memory from address (FP  + 7-bit prefix index) into TOS
+11001100  1    TREAD      Read memory from address (TOS + 7-bit prefix index) into TOS (drop ?)
+11001101  1    NREAD      Read memory from address (NOS + 7-bit prefix index) into TOS (overwrite TOS?)
+11001110  1    RREAD      Read memory from address (ROS + 7-bit prefix index) into TOS (rdrop ?) 
+11001111  1    FREAD      Read memory from address (FP  + 7-bit prefix index) into TOS
+               SREAD      PICK alternative to one of the above...
 
 
 8:
@@ -203,6 +252,31 @@ Bits      Pre  Mnemonic   Description
 11011110  1    RWRITE#    Write TOS data to address (ROS + 7-bit prefix index); pop stack
 11011111  1    FWRITE#    Write TOS data to address (FP  + 7-bit prefix index); pop stack
 110111r   2    -
+
+
+
+
+
+????????  -    OPUSH      Object Push: push(fp); fp= TOS;
+????????  -    OPOP       Object Pop:  fp= pop
+
+????????  0    FPUSH      Frame Push: push(fp); fp= sp;
+(see FRET, FJSR)
+
+8: (maybe ok, if replaces OPUSH,OPOP, FPUSH, FPOP keeping FJSR, FRET "special")
+??????rr  0    #POP       Pop TOS into Register rr
+??????rr  0    #PUSH      Push Register rr onto stack
+
+
+????????  0    IREAD      Indexed Read  (TOS+NOS)
+????????  0    IWRITE     Indexed Write (TOS+NOS)
+
+????????  -    INP        Input from port
+????????  -    OUT        Output to port
+
+
+10010xxx  0    -          stack ...
+10011xxx  0    -          rstack...
 
 
 == This is extended HASH/CRYPTO (save OPs: move to a "prefix" instr)
