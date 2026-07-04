@@ -7,7 +7,7 @@ Byte-coded dual-stack-machine with optional memory stack-frames intended to
 be implementd on FPGA Tang nano 20K.
 
 16-bit (extensible to 64), pure single-byte, single-cycle instruction flow,
-using flexible 7-bit-prefix-encoding sliding in literals into instructions.
+using flexible 7-bit-prefix-encoding sliding in literals to instructions.
 
 Instructions may exist in 0, 1, or 2-prefix literal modes, lending to a natural
 extensible streamed instruction execution.
@@ -16,6 +16,11 @@ OP-code space divided into two halves; first for building literal numbers
 7-bits at a time; and second for: bits+alu+stackops, control-flow,
 memory, hashing.
 
+Efficient 1-cycle test-loop-back provides a powerhouse of automatic
+streaming read/write/search/compare/count operators that in extreeme cases
+achieves *Zero-Overhead Hardware DMA / Stream Pump*.
+
+A simple 1-cycle, hash or randcom number generator saves cycles.
 
 
 Unusualies
@@ -160,6 +165,30 @@ However, considering that ZUP-16 has no "extended" write operations,
 like J1's hack with an addition dup after every read/write.
 It means that we may operate maybe 80% faster as our lines are
 shorter.
+
+
+=============== Compiler Opts
+
+Tail call is easy to identify:
+
+    lit lit JSR RET
+
+becomes "JMP", however if %RET conditional cannot do
+as there is more instructions after anyway.
+
+Observation: Since even our address & call/branch
+instructions have prefix data it may make a peephole optimizer
+smaller and easier to recognize!
+
+It's trivial to see if w can o partial evaluation on expressions
+during compilation, just keep a pointer to last point wherewe
+saw a non-functional op! if there are more than two ops, maybe can
+combine/replace!
+
+   48 @ <HERE> 3 3 4 * 8 + <yup!>
+
+
+
 
 ------------ OVERVIEW
 
@@ -463,6 +492,35 @@ Here are constant builder ops
 65535: TRUE
   -10: 9 TRUE
 
+
+WORD/BYTE MEMORY ACCESS
+=======================
+
+To avoid complex hardware and code-bloat we have unified the word/byte
+access in a simple memory controller (MMU). The pointer itself indicates
+by the signbit=1 that it indexing bytes. 0 means it's "normal" word indexing.
+Notice the word, *index*, and not addresss. This unifies all memory operations
+into one simpl instruction set.
+
+This, for example makes our PUMP and streaming operators work on either
+byte or word-modus. Comparison and other operatoss don't care.
+
+Wheras indeing is unified and data-width is automatic and 32K items
+can be indexed, it means words access 64KB and bytes the lower 32KB.
+Of course plainly comparing word/byte pointers is "futile" and would
+require a simple shift.
+
+
+LOOPING
+=======
+
+If R is busy acting as your comparison target or loopback address, you
+can use the top of your data stack (T) as the down-counter, provided
+your ALU can decrement T and check if it is zero in parallel with the
+memory stream.If T is your counter and Memory[N] is your data
+streaming through Port A, your hardware loopback flag becomes a simple
+wide NOR gate checking both busses: Loop_Enable = (T != 0) &&
+(PortA_Data != 0)
 
 HASH/RANDOM function combined!
 ==============================
