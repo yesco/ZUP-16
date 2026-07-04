@@ -1,102 +1,145 @@
 import sys
 import argparse
 
-def fixed_rand_hash_instruction(tos, nos):
-    """
-    100% Deterministic, Stateless Rand/Hash Instruction.
-    """
-    if tos != 0:
-        # STRING HASH MODE
-        rot7_nos = ((nos << 7) & 0xFFFF) | (nos >> 9)
-        return rot7_nos ^ tos
-    else:
-        # RANDOM MODE (TOS == 0)
-        # 1. Pre-cancel Left Rotate 7 by Right Rotating 7 (Left 9)
-        unrotated_nos = ((nos >> 7) & 0xFFFF) | ((nos << 9) & 0xFFFF)
-        
-        # 2. Apply a clean, full-period LCG step (x * 5 + 1)
-        lcg_step = ((unrotated_nos * 5) + 1) & 0xFFFF
-        
-        # 3. Left Rotate 7 fabric execution
-        result_out = ((lcg_step << 7) & 0xFFFF) | (lcg_step >> 9)
-        return result_out
-
-def count_bits_changed(val1, val2):
-    """Calculates the Hamming distance (number of bit changes) between two integers."""
-    return bin((val1 ^ val2) & 0xFFFF).count('1')
-
-def run_sequence_verification(starting_seed=0):
-    """Runs a full 65,536-step cycle with TOS = 0 starting from a specified number."""
-    visited = [False] * 65536
-    current_state = starting_seed & 0xFFFF
-    
-    print(f"Verifying full 64K cycle starting from custom seed: {current_state} (0x{current_state:04X})")
-    print(f"{'Step':<7} | {'Decimal':<7} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
-    print("-" * 65)
-    
-    print(f"{0:<7} | {current_state:<7} | 0x{current_state:04X} | {current_state:016b} | {'-':<12}")
-    visited[current_state] = True
-    
-    previous_state = current_state
-    for step in range(1, 65536):
-        current_state = fixed_rand_hash_instruction(tos=0, nos=previous_state)
-        visited[current_state] = True
-        
-        bits_changed = count_bits_changed(previous_state, current_state)
-        print(f"{step:<7} | {current_state:<7} | 0x{current_state:04X} | {current_state:016b} | {bits_changed:<12}")
-        previous_state = current_state
-        
-    final_step = fixed_rand_hash_instruction(tos=0, nos=previous_state)
-    print("-" * 65)
-    print(f"Loop Closure Verification -> Next Step would be: {final_step} (Should match seed: {starting_seed})")
-    print(f"Total Unique Values Visited: {sum(visited)} / 65536")
-
-def run_string_hash(input_string, initial_seed=0):
-    """Simulates character-by-character string hashing with an optional custom type/domain seed."""
-    current_hash = initial_seed & 0xFFFF
-    
-    print(f"Hashing String: \"{input_string}\" (Type Seed: {current_hash} / 0x{current_hash:04X})")
-    print(f"{'Step':<5} | {'Char':<6} | {'TOS (Val)':<9} | {'Decimal':<7} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
-    print("-" * 85)
-    
-    # Print the custom entry state
-    print(f"{0:<5} | {'START':<6} | {'-':<9} | {current_hash:<7} | 0x{current_hash:04X} | {current_hash:016b} | {'-':<12}")
-    
-    for idx, char in enumerate(input_string):
-        tos_val = ord(char) & 0xFFFF
-        next_hash = fixed_rand_hash_instruction(tos=tos_val, nos=current_hash)
-        bits_changed = count_bits_changed(current_hash, next_hash)
-        
-        print(f"{idx+1:<5} | {repr(char):<6} | {tos_val:<9} | {next_hash:<7} | 0x{next_hash:04X} | {next_hash:016b} | {bits_changed:<12}")
-        current_hash = next_hash
-        
-    print("-" * 85)
-    print(f"Final Typed Hash Value: 0x{current_hash:04X} ({current_hash})")
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Stateless 16-bit Hash & Random Verification Tool")
-    parser.を手動 = parser.add_argument('input_data', nargs='?', default=None, 
-                        help="An integer to test 64K random cycles, or a string to test hashing.")
-    parser.add_argument('--seed', type=int, default=0, 
-                        help="Optional numeric seed to type/initialize string hashes.")
-    
+    parser = argparse.ArgumentParser(description="Plain Logic Hash and Rand Simulator")
+    parser.add_argument('input_data', nargs='?', default=None)
+#    parser.add_argument('--seed', type=int, default=47111)
+    parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
-    
-    # Mode 1: No arguments provided -> Run 64K loop starting at 0
+
+    # Define base 16-bit register tracking space
+    # In Verilog: reg [15:0] current_nos;
+    current_nos = args.seed & 0xFFFF
+
+    # =========================================================================
+    # MODE 1: SEQUENCE VERIFICATION (No arguments provided)
+    # =========================================================================
     if args.input_data is None:
-        run_sequence_verification(starting_seed=0)
+        visited = [False] * 65536
+        previous_out = None
+        
+        print(f"Verifying full 64K cycle starting from seed: {current_nos} (0x{current_nos:04X})")
+        print(f"{'Step':<7} | {'Decimal':<7} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
+        print("-" * 65)
+
+        for step in range(65536):
+            # -----------------------------------------------------------------
+            # COMP_PATH: Your 1-Stage Combinational ALU Fabric
+            # Verilog equivalent: wire [15:0] rot7 = {nos[8:0], nos[15:9]}; 
+            #                     wire [15:0] out = rot7 ^ 16'd0;
+            # -----------------------------------------------------------------
+            alu_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
+            instruction_output = alu_rot7 ^ 0  # TOS is explicitly 0 in random mode
+            
+            # Trace visited properties
+            visited[instruction_output] = True
+
+            # Calculate bit changes from previous turn (Hamming Distance)
+            if previous_out is not None:
+                xor_diff = (previous_out ^ instruction_output) & 0xFFFF
+                bits_changed = bin(xor_diff).count('1')
+            else:
+                bits_changed = "-"
+
+            print(f"{step:<7} | {instruction_output:<7} | 0x{instruction_output:04X} | {instruction_output:016b} | {bits_changed:<12}")
+
+            # -----------------------------------------------------------------
+            # REG_BOUNDARY_PATH: Parallel State Increment Loop
+            # Verilog equivalent: wire [15:0] lcg = {nos[13:0], 2'b00} + nos + 16'd1;
+            #                     always @(posedge clk) nos <= (tos==0) ? lcg : out;
+            # -----------------------------------------------------------------
+            previous_out = instruction_output
+            
+            # Since TOS is 0, the write-back mux selects the multiplierless LCG step
+            nos_shift_left_2 = (current_nos << 2) & 0xFFFF
+            lcg_adder_ripple = nos_shift_left_2 + current_nos + 1  # Carry-In (Cin) is 1
+            current_nos = lcg_adder_ripple & 0xFFFF
+
+        # Final check to prove closure loop
+        final_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
+        final_output = final_rot7 ^ 0
+        print("-" * 65)
+        print(f"Loop Closure Verification -> Next Output would be: {final_output}")
+        print(f"Total Unique ALU Values Generated: {sum(visited)} / 65536")
+
+    # =========================================================================
+    # MODE 2 & 3: PROCESSING INJECTIONS OR STRINGS
+    # =========================================================================
     else:
-        # Check if input is a number
+        # Evaluate if the input data represents a number or string text
         is_numeric = False
         try:
             int(args.input_data)
             is_numeric = True
         except ValueError:
             pass
-            
+
+        # Sub-Mode A: Input is a specific numeric entry point -> Run 64K loop verification
         if is_numeric:
-            # Mode 2: Input is numeric -> Run full 64K loop starting from this seed
-            run_sequence_verification(starting_seed=int(args.input_data))
+            current_nos = int(args.input_data) & 0xFFFF
+            visited = [False] * 65536
+            previous_out = None
+            
+            print(f"Verifying full 64K cycle starting from seed: {current_nos} (0x{current_nos:04X})")
+            print(f"{'Step':<7} | {'Decimal':<7} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
+            print("-" * 65)
+
+            for step in range(65536):
+                alu_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
+                instruction_output = alu_rot7 ^ 0
+                visited[instruction_output] = True
+
+                if previous_out is not None:
+                    bits_changed = bin((previous_out ^ instruction_output) & 0xFFFF).count('1')
+                else:
+                    bits_changed = "-"
+
+                print(f"{step:<7} | {instruction_output:<7} | 0x{instruction_output:04X} | {instruction_output:016b} | {bits_changed:<12}")
+
+                previous_out = instruction_output
+                nos_shift_left_2 = (current_nos << 2) & 0xFFFF
+                current_nos = (nos_shift_left_2 + current_nos + 1) & 0xFFFF
+
+            final_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
+            final_output = final_rot7 ^ 0
+            print("-" * 65)
+            print(f"Loop Closure Verification -> Next Output would be: {final_output}")
+            print(f"Total Unique ALU Values Generated: {sum(visited)} / 65536")
+
+        # Sub-Mode B: Input is a string -> Run character-by-character deterministic hash avalanche
         else:
-            # Mode 3: Input is a string -> Run hashing (optionally with the custom type seed)
-            run_string_hash(args.input_data, initial_seed=args.seed)
+            input_string = args.input_data
+            print(f"Hashing String: \"{input_string}\" (Type Seed: {current_nos} / 0x{current_nos:04X})")
+            print(f"{'Step':<5} | {'Char':<6} | {'TOS (Val)':<9} | {'Decimal':<7} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
+            print("-" * 85)
+            
+            print(f"{0:<5} | {'START':<6} | {'-':<9} | {current_nos:<7} | 0x{current_nos:04X} | {current_nos:016b} | {'-':<12}")
+            
+            for idx, char in enumerate(input_string):
+                # -------------------------------------------------------------
+                # FETCH INPUTS: Extract character byte configuration
+                # -------------------------------------------------------------
+                tos_val = ord(char) & 0xFFFF
+                previous_nos = current_nos
+
+                # -------------------------------------------------------------
+                # ALU FABRIC EXECUTION
+                # -------------------------------------------------------------
+                alu_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
+                instruction_output = alu_rot7 ^ tos_val
+
+                # -------------------------------------------------------------
+                # REG_BOUNDARY MUX SELECTION: If TOS != 0, capture raw output wire
+                # -------------------------------------------------------------
+                if tos_val == 0:
+                    nos_shift_left_2 = (current_nos << 2) & 0xFFFF
+                    current_nos = (nos_shift_left_2 + current_nos + 1) & 0xFFFF
+                else:
+                    current_nos = instruction_output
+
+                bits_changed = bin((previous_nos ^ current_nos) & 0xFFFF).count('1')
+                print(f"{idx+1:<5} | {repr(char):<6} | {tos_val:<9} | {current_nos:<7} | 0x{current_nos:04X} | {current_nos:016b} | {bits_changed:<12}")
+                
+            print("-" * 85)
+            print(f"Final Typed Hash Value: 0x{current_nos:04X} ({current_nos})")
