@@ -4,7 +4,7 @@ import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Unified Single-Path Hash and Rand Simulator")
     parser.add_argument('input_data', nargs='?', default=None)
-    parser.add_argument('--seed', type=int, default=47111)
+    parser.add_argument('--seed', type=int, default=0) # Default seed is now exactly 0
     args = parser.parse_args()
 
     # Hardware State Register initialization (Stack NOS)
@@ -34,26 +34,23 @@ if __name__ == "__main__":
     # =========================================================================
     # THE UNIFIED HARDWARE DATA PATH (Exactly one loop, one path)
     # =========================================================================
-    print("-" * 85)
-    print(f"{'Step':<5} | {'TOS (In)':<9} | {'NOS (Out)':<9} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
-    print("-" * 85)
+    print("-" * 88)
+    print(f"{'Step':<5} | {'TOS (In)':<12} | {'NOS (Out)':<9} | {'Hex':<8} | {'Binary':<18} | {'Bits Changed':<12}")
+    print("-" * 88)
 
     # Step 0 Baseline Print
-    print(f"{0:<5} | {'START':<9} | {current_nos:<9} | 0x{current_nos:04X} | {current_nos:016b} | {'-':<12}")
+    print(f"{0:<5} | {'START':<12} | {current_nos:<9} | 0x{current_nos:04X} | {current_nos:016b} | {'-':<12}")
 
     visited_count = [False] * 65536
     previous_nos = current_nos
 
-    # Loop length is determined entirely by the data stream (strlen or 65536)
     for step_idx, tos_val in enumerate(tos_stream):
         
         # 1. THE COMBINATIONAL ALU FABRIC: (NOS rot 7) ^ TOS
-        # Wires rotate current state left by 7, then bitwise XOR with incoming TOS
         alu_rot7 = ((current_nos << 7) & 0xFFFF) | (current_nos >> 9)
         instruction_output = alu_rot7 ^ tos_val
 
         # 2. THE REGISTER WRITE-BACK BOUNDARY MULTIPLEXER: if (TOS == 0)
-        # Evaluated at the flip-flop clock pins to update the register for the next step
         if tos_val == 0:
             # Multiplierless LCG: (nos << 2) + nos + Cin
             nos_shift_left_2 = (current_nos << 2) & 0xFFFF
@@ -67,13 +64,19 @@ if __name__ == "__main__":
         bits_changed = bin((previous_nos ^ current_nos) & 0xFFFF).count('1')
         previous_nos = current_nos
 
+        # Format TOS column display: append "x" for printable characters (ASCII 32 to 126)
+        if 32 <= tos_val <= 126:
+            tos_display = f"{tos_val}x"
+        else:
+            tos_display = str(tos_val)
+
         # Print the execution line dynamically
-        print(f"{step_idx+1:<5} | {tos_val:<9} | {current_nos:<9} | 0x{current_nos:04X} | {current_nos:016b} | {bits_changed:<12}")
+        print(f"{step_idx+1:<5} | {tos_display:<12} | {current_nos:<9} | 0x{current_nos:04X} | {current_nos:016b} | {bits_changed:<12}")
 
     # =========================================================================
     # POST-STREAM ANALYSIS
     # =========================================================================
-    print("-" * 85)
+    print("-" * 88)
     if len(tos_stream) == 65536:
         print(f"Total Unique ALU Values Generated across the 64K loop: {sum(visited_count)} / 65536")
     else:
