@@ -1,23 +1,49 @@
-ZUPH-16 Zero Utility Processor: Hashing Optimized Prefix Instruction Set Computer - ZUPHOPISC
+ZUPH-16 Ztack Unicorn Processor: Hashing Optimized Prefix Instruction Set Computer - ZUPHOPISC
 =============================================================================================
 
-Ztack Unicorn Processor (?)
+Ztack Unicorn Processor!
 
-Byte-coded dual-stack-machine intended to be implementd on FPGA Tang nano 20K.
+Byte-coded dual-stack-machine with optional memory stack-frames intended to
+be implementd on FPGA Tang nano 20K.
 
 16-bit (extensible to 64), pure single-byte, single-cycle instruction flow,
 using flexible 7-bit-prefix-encoding sliding in literals into instructions.
 
-Thus an instruction may have a literal-load first, and depending on
-number of prefixes can perform slightly different tasks.
+Instructions may exist in 0, 1, or 2-prefix literal modes, lending to a natural
+extensible streamed instruction execution.
 
 OP-code space divided into two halves; first for building literal numbers
 7-bits at a time; and second for: bits+alu+stackops, control-flow,
-memory, hashing. 
+memory, hashing.
+
 
 
 Unusualies
 ==========
+
+Single-byte, single-cycle
+- Local frame/object-oriented index slot 0-7 put/get
+- Global register 0-3 read/write
+- Conditional Returns with fused cleanup ops
+- Toggling+Testing specific bit set (highest 8, lowest 8)
+- Streamed read/write self-advancing pointers
+- Loop-back control fused with streaming ops
+- Super-Power self-testing loop stepping: count/copy/search/compare
+- Hsahing/Crypto stepping functions (optional)
+
+Other
+- 14 single-byte user-definable byte-codes
+
+2-byte (2-cycle)
+- "Zero Page"   512 values read/write
+- "Frame slots" 256 values read/write
+- Conditional sliding window [-256, +512] "absolute" Jumps with fused cleanup ops
+
+3-bytes (3-cycles):
+- Full 16-bit access in 3 bytes
+- Chainable 3 byte fused ops: #=IF #<IF #bitIF #&IF with fused cleanup ops
+  Replacing patterns like: "dup 42 = IF (drop) ...", 5 bytes with 3 bytes
+
 
 ZUP has tried to take an untradition approach to a Forth-style CPU
 than the J1 FPGA-implementation, for examploe. Instead of 16-bit VLIW,
@@ -68,12 +94,14 @@ Statistics
 Preliminary analysis of static byte-code codebases indicate the match:
 
 - BYTES% (CYCLE%) ACTION
+
 - 35-50% ( 5-10%) local frame accesses
 - 15-35% (......) constants/addresses/literals
 - 10-20% (35-45%) of instructions are control flow related (jsr/jmp/methods/ret)
 - 10-18% (25-35%) memory accesses
 - 10-15% (    5%) misc
 -  8-15% (10-15%) arithmetic/register manipulations
+
 - lower hanging items:
 -  2- 4% ( 1- 2%) type casting/conversions (float2int promotef64 checkcast relevant for JVM)
 -   < 1% ( 5-10%) exception handling
@@ -81,15 +109,57 @@ Preliminary analysis of static byte-code codebases indicate the match:
 
 (Note: byte ranges are widened covering both static & dynamic codes)
 
-It is believed that our ISA achieves: [Total Byte Footprint]
-- Local Frame Access (LOAD0-15) [25%]
-- Fused Literals/Addresses      [12%]
-- Control Flow (Jumps/Sub)      [18%]
-- Streaming/Super-Inst          [20%]
-- Stack/Arithmetic/Misc         [25%]
+
+It is estimated that our ISA achieves a balance of:
+
+- [Total Byte Footprint]
+
+- [25%] Local Frame Access (LOAD0-15) 
+- [12%] Fused Literals/Addresses
+- [18%] Control Flow (Jumps/Sub)
+- [20%] Streaming/Super-Instructions
+- [25%] Stack/Arithmetic/Misc
+
+Compared to J1 we may use 40% less program storage for the same task
+and simlilar performance.
 
 
+PEEPHOLE EXECUTION 1-CYCLE FUSION
+=================================
 
+Now, it's obvious to see that a strict 1-cycle per byte is the upper bound.
+It's trivial to realize that several two byte sequences can be performed in
+parallell without much extra coding cost:
+
+- lit lit
+- drop lit
+- lit <prefix instr>
+- lit <ALU>
+- dup jsr#
+- drop jsr#
+- <ALU> dup
+- lit nop
+- inc <ALU>
+- <ALU> inc
+- ??? ret
+
+In the case of 2 that cannot be done simultaniously, the leftmos is
+performed, bytes swapped and new byte inserted into 2nd slot
+
+If we extend to 3 slots, which may not always be back-filled,
+unless we use a clever half-staggered 2-BRAM memory. we may
+also do these in one cycle, at slightly higher routing cost(?).
+
+- lit lit lit
+- lit lit read/write/jmp/ret/jsr
+
+On the same useless fibonacci program we take 70% of the
+tiem of J1 (1.45x faster) in terms of clock-cycles.
+
+However, considering that ZUP-16 has no "extended" write operations,
+like J1's hack with an addition dup after every read/write.
+It means that we may operate maybe 80% faster as our lines are
+shorter.
 
 ------------ OVERVIEW
 
@@ -220,7 +290,7 @@ FJSR who clean up the stack?
 8:
 
 110010rr  0    REG#       Read internal register file index (rr) into TOS (No external RAM bus action)
-110010rr  1    #READ#     Read memory from address (Register 0 + 7-bit prefix index) into TOS
+110010rr  1    #READ#     Read memory from address (Register rr + 7-bit prefix index) into TOS
 110110rr  2    -
 
 1100110r  0  0/1-RINC     Read memory from address in Reg (r), then automatically increment Reg value by 1
@@ -242,7 +312,7 @@ FJSR who clean up the stack?
 8:
 
 110110rr  0    WREG#      Write TOS data directly into internal register file index (rr); pop stack
-110110rr  1    #WRITE#    Write TOS data to address (Register 0 + 7-bit prefix index); pop stack
+110110rr  1    #WRITE#    Write TOS data to address (Register rr + 7-bit prefix index); pop stack
 110110rr  2    -
 
 1101110r  0  0/1-WINC     Write TOS data to address in Reg (r), then automatically increment Reg value by 1
