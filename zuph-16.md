@@ -199,7 +199,7 @@ Bits      Pre  Mnemonic   Description
 
 (each grouping 32 instructions:)
 
-100 0iiii  -    TOGGLE/POW Toggle bit (15 - iiii) of TOS; old bit moves to carry register
+100 0iiii  -    TOGGLE/POW Toggle bit (15 - iiii); old bit => Carry
 100 1iiii  -    LOOP       Looping and Streaming Instructions
 
 101 0iiii  -    JSR        Jump SubRoutine

@@ -1,0 +1,50 @@
+#!/bin/bash -xe
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <project_name> [top_module]"
+    echo "  <project_name>  Mandatory. Base name of your .v file."
+    echo "  [top_module]    Optional. Overrides top module name."
+    exit 1
+fi
+
+FILENAME=$1
+TOP_MODULE=$2
+BUILD_DIR="build"
+
+mkdir -p "$BUILD_DIR"
+
+# 1. Synthesis targeting Gowin architecture
+if [ -n "$TOP_MODULE" ]; then
+    YOSYS_CMD="synth_gowin -top ${TOP_MODULE} -json ${BUILD_DIR}/${FILENAME}.json"
+else
+    YOSYS_CMD="synth_gowin -json ${BUILD_DIR}/${FILENAME}.json"
+fi
+
+yosys -p "$YOSYS_CMD" "${FILENAME}.v"
+
+# 2. Extract top-level ports and assign raw numbers as pins
+DUMMY_CST="${BUILD_DIR}/dummy_ports.cst"
+echo "// Auto-generated pure-integer constraints for nextpnr compliance" > "$DUMMY_CST"
+
+# Use raw pin numbers (15, 16, 17...) which nextpnr-himbaechel expects for the QN88 package
+PIN_COUNTER=15
+
+grep -E '^\s*(input|output)\s+' "${FILENAME}.v" | sed -E 's/.*(input|output)\s+([^;,]*).*/\2/' | tr -d ' ' | while read -r port; do
+    if [ -n "$port" ]; then
+        echo "IO_LOC \"$port\" $PIN_COUNTER;" >> "$DUMMY_CST"
+        PIN_COUNTER=$((PIN_COUNTER + 1))
+    fi
+done
+
+# 3. Place & Route using himbaechel with the correct integer .cst file
+nextpnr-himbaechel \
+    --device GW2AR-LV18QN88C8/I7 \
+    --vopt family=GW2A-18C \
+    --vopt cst="$DUMMY_CST" \
+    --json "${BUILD_DIR}/${FILENAME}.json" \
+    --write "${BUILD_DIR}/${FILENAME}_pnr.json"
+
+# 4. Bitstream Generation using Apicula 
+gowin_pack -d GW2A-18C -o "${BUILD_DIR}/${FILENAME}.fs" "${BUILD_DIR}/${FILENAME}_pnr.json"
+
+echo "Success! Gowin stream located at ${BUILD_DIR}/${FILENAME}.fs"
