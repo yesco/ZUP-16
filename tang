@@ -13,7 +13,7 @@ BUILD_DIR="build"
 
 mkdir -p "$BUILD_DIR"
 
-# 1. Synthesis targeting Gowin architecture
+# 1. Run Yosys Synthesis targeting Gowin architecture
 if [ -n "$TOP_MODULE" ]; then
     YOSYS_CMD="synth_gowin -top ${TOP_MODULE} -json ${BUILD_DIR}/${FILENAME}.json"
 else
@@ -22,29 +22,32 @@ fi
 
 yosys -p "$YOSYS_CMD" "${FILENAME}.v"
 
-# 2. Extract top-level ports and assign raw numbers as pins
+# 2. Inject the Exact Physical Pins for the Sipeed Tang Nano 20K QN88 Pack
 DUMMY_CST="${BUILD_DIR}/dummy_ports.cst"
-echo "// Auto-generated pure-integer constraints for nextpnr compliance" > "$DUMMY_CST"
 
-# Use raw pin numbers (15, 16, 17...) which nextpnr-himbaechel expects for the QN88 package
-PIN_COUNTER=15
+printf '%s\n' \
+    "IO_LOC \"clk\" 4;" \
+    "IO_LOC \"rst_n\" 88;" \
+    "IO_LOC \"pins_out[0]\" 73;" \
+    "IO_LOC \"pins_out[1]\" 74;" \
+    "IO_LOC \"pins_out[2]\" 75;" \
+    "IO_LOC \"pins_out[3]\" 76;" \
+    "IO_LOC \"pins_out[4]\" 77;" \
+    "IO_LOC \"leds_out[0]\" 15;" \
+    "IO_LOC \"leds_out[1]\" 16;" \
+    "IO_LOC \"leds_out[2]\" 17;" \
+    > "$DUMMY_CST"
 
-grep -E '^\s*(input|output)\s+' "${FILENAME}.v" | sed -E 's/.*(input|output)\s+([^;,]*).*/\2/' | tr -d ' ' | while read -r port; do
-    if [ -n "$port" ]; then
-        echo "IO_LOC \"$port\" $PIN_COUNTER;" >> "$DUMMY_CST"
-        PIN_COUNTER=$((PIN_COUNTER + 1))
-    fi
-done
-
-# 3. Place & Route using himbaechel with the correct integer .cst file
+# 3. Place & Route using himbaechel with your complete constraint file
 nextpnr-himbaechel \
+    -v \
     --device GW2AR-LV18QN88C8/I7 \
     --vopt family=GW2A-18C \
     --vopt cst="$DUMMY_CST" \
     --json "${BUILD_DIR}/${FILENAME}.json" \
     --write "${BUILD_DIR}/${FILENAME}_pnr.json"
 
-# 4. Bitstream Generation using Apicula 
+# 4. Bitstream Generation using Project Apicula
 gowin_pack -d GW2A-18C -o "${BUILD_DIR}/${FILENAME}.fs" "${BUILD_DIR}/${FILENAME}_pnr.json"
 
 echo "Success! Gowin stream located at ${BUILD_DIR}/${FILENAME}.fs"
