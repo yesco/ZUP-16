@@ -39,17 +39,49 @@ module mini8 (
    wire [2:0] sub_op = instruction[2:0];        
 
    // Group Selection Localparams
-   localparam GRP_ALU   = 4'b0001,
-              GRP_JZ    = 4'b0010,
-              GRP_STACK = 4'b0100;
+   localparam GRP_BITSY  = 4'b0000,
+              GRP_BITSY2 = 4'b0000,
+	      
+	      GRP_LOOP   = 4'b0010,
+	      GRP_LOOP2  = 4'b0011,
+
+	      GRP_JSRRET = 4'b0100,
+    	      GRP_JSRRET2= 4'b0101,
+
+	      GRP_BRANCH = 4'b0110,
+	      GRP_BRANCH2= 4'b0111,
+
+	      GRP_READ   = 4'b1000,
+	      GRP_READ2  = 4'b1000,
+
+	      GRP_WRITE  = 4'b1010,
+	      GRP_WRITE2 = 4'b1011,
+
+	      GRP_REG    = 4'b1100,
+              GRP_STACK  = 4'b1101,
+              GRP_ALU    = 4'b1110,
+              GRP_RSTACK = 4'b1111;
+
+
+   // BITSY Sub-instruction Opcodes
+   localparam SIGN  = 3'b000, bit14 = 3'b001, bit13 = 3'b010, bit12 = 3'b011,
+              bit11 = 3'b100, bit10 = 3'b101, bit09 = 3'b110, bit08 = 3'b111;
+   localparam bit07 = 3'b000, bit06 = 3'b001, bit05 = 3'b010, bit04 = 3'b011,
+              bit03 = 3'b100, bit02 = 3'b101, bit01 = 3'b110, bit00 = 3'b111;
 
    // ALU Sub-instruction Opcodes
-   localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, SBC = 3'b011,
+   // TODO: maybe repurpose SBC
+   localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, SBC  = 3'b011,
               AND = 3'b100, OR  = 3'b101, XOR = 3'b110, DROP = 3'b111;
 
+   // Register Ops (not moving stack)
+   localparam INC = 3'b000, DEC  = 3'b001, ROR = 3'b010, ASR  = 3'b011,
+              SHR = 3'b100, SHR4 = 3'b101, SHL = 3'b110, SHL4 = 3'b111;
+
    // STK Sub-instruction Opcodes
-   localparam DUP  = 3'b000,
-              SWAP = 3'b111;
+   localparam st0  = 3'b000, MUL  = 3'b001, NOP  = 3'b010, ROT = 3'b011,
+              SWAP = 3'b100, OVER = 3'b101, TUCK = 3'b110, DUP = 3'b111;
+
 
    // Interconnect Nets
    reg [7:0]  nxt_tos;
@@ -129,7 +161,7 @@ module mini8 (
          nxt_n2  = 8'h00; 
       end else if (is_lit) begin
          // nothing
-      end else if (grp == GRP_JZ && z) begin
+      end else if (grp == GRP_BRANCH && z) begin
          nxt_pc  = nos;
       end
    end

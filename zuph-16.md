@@ -352,7 +352,7 @@ Bits      Pre  Mnemonic   Description
 
 32:
 
-== 16 REGISTER MANIPULATION 
+== 8 REGISTER MANIPULATION 
 111 00000 -    inc      - Increment TOS by 1.
 111 00001 -    dec      - Decrement TOS by 1.
 111 0000x 1+    ?                (prefix doesn't make sense for inc/dec so it's safe!)

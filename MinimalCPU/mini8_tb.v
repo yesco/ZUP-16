@@ -29,7 +29,7 @@ module mini8_tb;
          mnemonic = "LIT#";
       end else begin
          case (cpu.grp)
-           4'b0001: begin // GRP_ALU
+           4'b1110: begin // GRP_ALU
               case (cpu.sub_op)
                 3'b000: mnemonic = "ADD ";
                 3'b001: mnemonic = "ADC ";
@@ -41,17 +41,17 @@ module mini8_tb;
                 3'b111: mnemonic = "DROP";
               endcase
            end
-           4'b0010: mnemonic = "JZ  "; // GRP_JZ
-           4'b0100: begin  // GRP_STACK
+           4'b0110: mnemonic = "JZ  "; // GRP_BRANCH
+           4'b1101: begin  // GRP_STACK
               case (cpu.sub_op)
-                3'b000: mnemonic = "DUP ";
-                3'b001: mnemonic = "st1 ";
-                3'b010: mnemonic = "st2 ";
-                3'b011: mnemonic = "st3 ";
-                3'b100: mnemonic = "st4 "; 
-                3'b101: mnemonic = "st5 ";
-                3'b110: mnemonic = "st6 ";
-                3'b111: mnemonic = "SWAP";
+                3'b000: mnemonic = "st0 ";
+                3'b001: mnemonic = "MUL ";
+                3'b010: mnemonic = "NOP ";
+                3'b011: mnemonic = "ROT ";
+                3'b100: mnemonic = "SWAP"; 
+                3'b101: mnemonic = "OVER";
+                3'b110: mnemonic = "TUCK";
+                3'b111: mnemonic = "DUP ";
               endcase // case (cpu.sub_op)
            end
            default: mnemonic = "--- ";
@@ -74,17 +74,17 @@ module mini8_tb;
       instruction_rom[8'h00] = 8'b0_0000111;  // LIT 7
       instruction_rom[8'h01] = 8'b0_0000101;  // LIT 5
       instruction_rom[8'h02] = 8'b0_0000011;  // LIT 3
-      instruction_rom[8'h03] = 8'b1_0001_000; // GROUP 1, ADD
-      instruction_rom[8'h04] = 8'b1_0001_000; // GROUP 1, ADD
-      instruction_rom[8'h05] = 8'b1_0100_111; // GROUP 3, SWAP
-      instruction_rom[8'h06] = 8'b1_0100_111; // GROUP 3, SWAP
-      instruction_rom[8'h07] = 8'b1_0100_000; // GROUP 3, DUP
-      instruction_rom[8'h08] = 8'b1_0001_111; // GROUP 1, DROP
+      instruction_rom[8'h03] = 8'b1_1110_000; // GRP_ALU, ADD
+      instruction_rom[8'h04] = 8'b1_1110_000; // GRP_ALU, ADD
+      instruction_rom[8'h05] = 8'b1_1101_100; // GRP_STK, SWAP
+      instruction_rom[8'h06] = 8'b1_1101_100; // GRP_STK, SWAP
+      instruction_rom[8'h07] = 8'b1_1101_111; // GRP_STK, DUP
+      instruction_rom[8'h08] = 8'b1_1110_111; // GRP_ALU, DROP
       instruction_rom[8'h09] = 8'b0_0000000;  // LIT 0
       instruction_rom[8'h0a] = 8'b0_0000001;  // LIT 1
-      instruction_rom[8'h0b] = 8'b1_0001_010; // GROUP 1, SUB
+      instruction_rom[8'h0b] = 8'b1_1110_010; // GRP_ALU, SUB
       instruction_rom[8'h0c] = 8'b0_0000001;  // LIT 1
-      instruction_rom[8'h0d] = 8'b1_0001_001; // GROUP 1, ADC
+      instruction_rom[8'h0d] = 8'b1_1110_001; // GRP_ALU, ADC
       
       for (integer i = 14; i < 256; i = i + 1) begin
          instruction_rom[i] = 8'h00;
