@@ -80,9 +80,13 @@ module mini8_tb;
       instruction_rom[8'h06] = 8'b1_0100_111; // GROUP 3, SWAP
       instruction_rom[8'h07] = 8'b1_0100_000; // GROUP 3, DUP
       instruction_rom[8'h08] = 8'b1_0001_111; // GROUP 1, DROP
+      instruction_rom[8'h09] = 8'b0_0000000;  // LIT 0
+      instruction_rom[8'h0a] = 8'b0_0000001;  // LIT 1
+      instruction_rom[8'h0b] = 8'b1_0001_010; // GROUP 1, SUB
+      instruction_rom[8'h0c] = 8'b0_0000000;  // LIT 0
+      instruction_rom[8'h0d] = 8'b1_0001_001; // GROUP 1, ADC
       
-      // EDITED LINE: Fixed the index bound to start at 6 so it skips your valid program code
-      for (integer i = 8; i < 256; i = i + 1) begin
+      for (integer i = 14; i < 256; i = i + 1) begin
          instruction_rom[i] = 8'h00;
       end
 

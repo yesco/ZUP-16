@@ -2,7 +2,7 @@ rm -f $1.sim
 iverilog -o $1.sim mini8.v $1_tb.v
 vvp $1.sim | tee $1.out
 
-git diff $1.out
+git diff -U9999 $1.out
 
 
 

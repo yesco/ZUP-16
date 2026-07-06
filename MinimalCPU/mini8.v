@@ -94,14 +94,14 @@ module mini8 (
          
          // PASS 1: Set up the routing parameters for arithmetic operations
          case (sub_op)
-           ADD: begin b_mux = nos;  cin = 1'b0;    end
-           ADC: begin b_mux = nos;  cin = c_reg;   end
-           SUB: begin b_mux = ~nos; cin = 1'b1;    end
-           SBC: begin b_mux = ~nos; cin = ~c_reg;  end
+           ADD: begin b_mux = tos;  cin = 0;     end
+           ADC: begin b_mux = tos;  cin = c_reg; end
+           SUB: begin b_mux = ~tos; cin = 1;     end
+           SBC: begin b_mux = ~tos; cin = ~c_reg;end
          endcase
 
          // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
-         {nxt_carry, nxt_tos} = tos + b_mux + cin;
+         {nxt_carry, nxt_tos} = nos + b_mux + cin;
 
          // PASS 2: Let logical operations cleanly overwrite nxt_tos if active
          case (sub_op)
