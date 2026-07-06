@@ -1,4 +1,6 @@
-// Editing: Only change lines if really needed
+// mini8.v: A minimal play 8-bit CPU
+//
+// Editing: Only change lines if really needed, any other changes ask
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,

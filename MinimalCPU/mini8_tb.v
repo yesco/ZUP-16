@@ -1,4 +1,7 @@
+// mini8_tb.v: A "terminaL' for mini8
+//
 // Editing: Only change lines if really needed, any other changes ask
+
 `timescale 1ns/1ps
 
 module mini8_tb;
