@@ -32,10 +32,10 @@ module mini8 (
     assign v   = 1'b0; 
 
     // Instruction Decoder Extraction
-    wire is_lit    = (instruction[7] == 1'b0);         
+    wire       is_lit   = (instruction[7] == 1'b0);         
     wire [6:0] lit_data = instruction[6:0];      
     
-    wire [3:0] grp  = instruction[6:3];          
+    wire [3:0] grp    = instruction[6:3];          
     wire [2:0] sub_op = instruction[2:0];        
 
     // Group Selection Localparams
@@ -52,7 +52,7 @@ module mini8 (
                SWAP = 3'b111;
 
     // Interconnect Nets
-    reg [7:0] nxt_tos;      
+    reg [7:0] nxt_tos;
     reg       nxt_carry;    
     reg [7:0] nxt_pc;      
 
@@ -62,8 +62,8 @@ module mini8 (
 
     // Direct Control Wire Assertions
     // EDITED LINE: DUP automatically triggers your pre-existing push router logic
-    wire do_push = is_lit || (!is_lit && (grp == GRP_STACK) && (sub_op == DUP));
-    wire do_drop = (!is_lit && (grp == GRP_ALU)); 
+    wire do_push = is_lit || ((grp == GRP_STACK) && (sub_op == DUP));
+    wire do_drop = !is_lit && (grp == GRP_ALU);
 
     // --- Single-Adder Control Mux Nets ---
     reg [7:0] b_mux;
@@ -87,7 +87,7 @@ module mini8 (
         if (is_lit) begin
 
             nxt_carry = 1'b0;
-            nxt_tos   = {1'b0, lit_data}; 
+            nxt_tos   = {1'b0, lit_data};
 
         end else if (grp == GRP_ALU) begin
             
@@ -96,7 +96,7 @@ module mini8 (
                 ADD: begin b_mux = nos;  cin = 1'b0;    end
                 ADC: begin b_mux = nos;  cin = c_reg;   end
                 SUB: begin b_mux = ~nos; cin = 1'b1;    end
-                SBC: begin b_mux = ~nos; cin = ~c_reg;   end
+                SBC: begin b_mux = ~nos; cin = ~c_reg;  end
             endcase
 
             // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
@@ -113,8 +113,7 @@ module mini8 (
         end else if (grp == GRP_STACK) begin
 	   
             case (sub_op)
-                // EDITED LINES: Pure single-line parameter targets. No duplicate routing pins.
-                //DUP:  begin nxt_tos = tos; end // not needed
+	        // DUP: implicit by do_push!
                 SWAP: begin nxt_tos = nos; b_mux = tos; nxt_nos = b_mux; end
             endcase
 
