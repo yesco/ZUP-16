@@ -70,6 +70,11 @@ module mini8_tb;
    end
 
    initial begin
+      // clear first, override later
+      for (integer i = 0; i < 256; i = i + 1) begin
+         instruction_rom[i] = 8'h00;
+      end
+
       // --- Load the program instructions into our Testbench ROM array ---
       instruction_rom[8'h00] = 8'b0_0000111;  // LIT 7
       instruction_rom[8'h01] = 8'b0_0000101;  // LIT 5
@@ -85,10 +90,12 @@ module mini8_tb;
       instruction_rom[8'h0b] = 8'b1_1110_010; // GRP_ALU, SUB
       instruction_rom[8'h0c] = 8'b0_0000001;  // LIT 1
       instruction_rom[8'h0d] = 8'b1_1110_001; // GRP_ALU, ADC
-      
-      for (integer i = 14; i < 256; i = i + 1) begin
-         instruction_rom[i] = 8'h00;
-      end
+
+      instruction_rom[8'h0e] = 8'b0_0000001;  // LIT 1         -> TOS=01, NOS=02, N2=03
+      instruction_rom[8'h0f] = 8'b0_0000010;  // LIT 2         -> TOS=02, NOS=01, N2=03
+      instruction_rom[8'h10] = 8'b0_0000011;  // LIT 3         -> TOS=03, NOS=02, N2=01
+      instruction_rom[8'h11] = 8'b1_1101_101; // GRP_STK, OVER -> TOS=02, NOS=03, N2=02
+      instruction_rom[8'h12] = 8'b1_1101_110; // GRP_STK, TUCK -> TOS=02, NOS=02, N2=03
 
       // Print formatting header for your terminal screen
       $display("------------------------------------------");
@@ -106,7 +113,7 @@ module mini8_tb;
       rst_n = 1; // Release reset to start execution loop
 
       // 3. Run the loop long enough to watch operations take place
-      #300; 
+      #400; 
       $display("--------------------------------------------");
       $finish; // Safely stop simulation execution
    end

@@ -93,9 +93,7 @@ module mini8 (
    reg [7:0]  nxt_n2;
 
    // Direct Control Wire Assertions
-   // EDITED LINE: DUP automatically triggers your pre-existing push router logic
-   wire       do_push = is_lit || ((grp == GRP_STACK) && (sub_op == DUP));
-   // technically !is_lit not needed but decrease LUT!
+   wire       do_push = is_lit || ((grp == GRP_STACK) && ((sub_op == DUP) || (sub_op == OVER) || (sub_op == TUCK)));
    wire       do_drop = !is_lit && (grp == GRP_ALU); 
 
    // --- Single-Adder Control Mux Nets ---
@@ -146,7 +144,9 @@ module mini8 (
       end else if (grp == GRP_STACK) begin
          
          case (sub_op)
-           // DUP: implicit by do_push!
+           // DUP, OVER, and TUCK: implicit by do_push!
+           OVER: begin nxt_tos = nos; end
+           TUCK: begin nxt_tos = tos; end
            SWAP: begin nxt_tos = nos; b_mux = tos; nxt_nos = b_mux; end
          endcase
 
