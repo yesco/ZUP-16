@@ -6,6 +6,7 @@ module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
     output reg  [7:0] pc,
+    input  wire [7:0] instruction, // EDITED LINE: Program code enters here now!
     
     // External flag monitors
     output wire       c, 
@@ -29,21 +30,6 @@ module mini8 (
     assign z   = (tos == 8'd0); 
     assign n   = tos;
     assign v   = 1'b0; 
-
-    // ==========================================================
-    // 2. INLINE PROGRAM ROM (No Submodule Needed)
-    // ==========================================================
-    reg [7:0] instruction;
-    
-    always @(*) begin
-        case(pc)
-            8'h00: instruction = 8'b0_0000101;  // LIT 5          -> Push 5 onto stack
-            8'h01: instruction = 8'b0_0000011;  // LIT 3          -> Push 3 onto stack
-            8'h02: instruction = 8'b1_0001_000; // GROUP 1, ADD  -> TOS = 8 (implicitly drops stack)
-            8'h03: instruction = 8'b1_0001_111; // GROUP 1, DROP -> Drops TOS, NOS becomes new TOS
-            default: instruction = 8'h00;
-        endcase
-    end
 
     // Instruction Decoder Extraction
     wire is_lit    = !instruction[7];         
@@ -149,8 +135,8 @@ module mini8 (
             n2    <= 8'h00;
         end else begin
             pc    <= pc_next;    
-            c_reg <= nxt_carry; // Split into distinct, clear single lines
-            tos   <= nxt_tos;   // Split into distinct, clear single lines
+            c_reg <= nxt_carry; 
+            tos   <= nxt_tos;   
             nos   <= nxt_nos;
             n2    <= nxt_n2;
         end

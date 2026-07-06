@@ -7,11 +7,16 @@
 module mini8_tb;
     reg clk;
     reg rst_n;
+    
+    // --- Testbench ROM Memory Array ---
+    reg [7:0] instruction_rom[0:255]; 
+    wire [7:0] current_instruction = instruction_rom[cpu.pc];
 
     // Instantiate your inline CPU core
     mini8 cpu (
         .clk(clk),
-        .rst_n(rst_n)
+        .rst_n(rst_n),
+        .instruction(current_instruction)
     );
 
     // 1. Generate clock toggles (50MHz simulation)
@@ -20,7 +25,7 @@ module mini8_tb;
     // --- Mnemonic Decoder Net ( up to 4 ASCII characters) ---
     reg [34:0] mnemonic;
     always @(*) begin
-        if (cpu.is_lit) begin
+        if (cpu.instruction[7] == 1'b0) begin
             mnemonic = "LIT#";
         end else begin
             case (cpu.grp)
@@ -44,25 +49,35 @@ module mini8_tb;
         end
     end
 
-    // --- NEW: Dynamic Argument String Formatter ---
-    // Declares 24 bits to hold either 3 characters (" 05") or 3 blank spaces ("   ")
+    // --- Dynamic Argument String Formatter ---
     reg [23:0] arg_str;
     always @(*) begin
-        if (cpu.is_lit) begin
-            // Converts the raw hex data byte into its literal ASCII string representation
-            $sformat(arg_str, "%02h ", cpu.lit_data);
+        if (current_instruction[7] == 1'b0) begin
+            $sformat(arg_str, "%02h ", current_instruction[6:0]);
         end else begin
-            arg_str = "   "; // Print three blank character spaces if it is an ALU op
+            arg_str = "   "; 
         end
     end
 
     initial begin
+        // --- Load the program instructions into our Testbench ROM array ---
+        instruction_rom[8'h00] = 8'b0_0000111;  // LIT 7
+        instruction_rom[8'h01] = 8'b0_0000101;  // LIT 5
+        instruction_rom[8'h02] = 8'b0_0000011;  // LIT 3
+        instruction_rom[8'h03] = 8'b1_0001_000; // GROUP 1, ADD
+        instruction_rom[8'h04] = 8'b1_0001_000; // GROUP 1, ADD
+        instruction_rom[8'h05] = 8'b1_0001_111; // GROUP 1, DROP
+        
+        // Fill remaining memory entries with safe 0 values
+        for (integer i = 4; i < 256; i = i + 1) begin
+            instruction_rom[i] = 8'h00;
+        end
+
         // Print formatting header for your terminal screen
         $display("------------------------------------------");
         $display(" TIME  | PC | INSTR  | Z C N V TOS NOS N2");
         $display("------------------------------------------");
         
-        // Single flat monitor that checks our dynamic string net on every change
         $monitor("%6d | %02h | %s%s | %b %b %b %b  %02h %02h %02h",
                  $time, cpu.pc, mnemonic, arg_str, cpu.z, cpu.c, cpu.n, cpu.v,
                  cpu.tos, cpu.nos, cpu.n2);
