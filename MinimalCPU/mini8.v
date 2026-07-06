@@ -1,4 +1,4 @@
-module micro_cpu_split_jz (
+module micro_cpu_inline_rom (
     input  wire       clk, 
     input  wire       rst_n,
     output reg  [7:0] pc,
@@ -21,22 +21,35 @@ module micro_cpu_split_jz (
     assign carry_in = cacc;
 
     assign flag_c   = carry_in;
-    assign flag_z   = (acc == 8'd0); // Evaluated instantly from register state
+    assign flag_z   = (acc == 8'd0); 
     assign flag_n   = acc;
 
     // ==========================================================
-    // 2. Decoder & Instruction Splits
+    // 2. INLINE PROGRAM ROM (No Submodule Needed)
     // ==========================================================
+    reg [7:0] instruction;
+    
+    always @(*) begin
+        case(pc)
+            // Layout: [Opcode 3-bit] [Data/Address 5-bit]
+            8'h00: instruction = 8'b101_00010; // OR  Immediate 2   -> Acc = 2
+            8'h01: instruction = 8'b010_00001; // SUB Immediate 1   -> Acc = 1 (flag_z=0)
+            8'h02: instruction = 8'b011_00001; // JZ to Address 01  -> flag_z is 0, passes through
+            8'h03: instruction = 8'b010_00001; // SUB Immediate 1   -> Acc = 0 (flag_z=1)
+            8'h04: instruction = 8'b011_00001; // JZ to Address 01  -> flag_z is 1! Loops back!
+            8'h05: instruction = 8'b111_00000; // INV Accumulator   -> Escaped! Acc = 255
+            default: instruction=8'b011_00000; // Idle lock loop
+        endcase
+    end
+
+    // Instruction Splits
     localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, JZ  = 3'b011,
                AND = 3'b100, OR  = 3'b101, XOR = 3'b110, INV = 3'b111;
-
-    wire [7:0] instruction;
-    program_rom rom_inst (.address(pc), .data(instruction));
 
     wire [2:0] op   = instruction[7:5];
     wire [7:0] reg2 = instruction[4:0];
 
-    // Interconnect Nets between Blocks
+    // Interconnect Nets
     reg [7:0] alu_acc;      
     reg       carry_out;    
     wire [8:0] final_cacc = {carry_out, alu_acc}; 
@@ -44,29 +57,24 @@ module micro_cpu_split_jz (
     reg [7:0] pc_next;      
 
     // ==========================================================
-    // CONCERN A: Pure ALU Math Engine (No Control Flow / JZ)
+    // 3. CONCERN A: Pure ALU Math Engine
     // ==========================================================
     always @(*) begin
-        // Default Assignments: Preserve register states
         carry_out = carry_in; 
         alu_acc   = acc;      
         nxt_v     = 1'b0;
 
         case (op)
-            // Arithmetic Operations
             ADD: {carry_out, alu_acc} = acc + reg2;
             ADC: {carry_out, alu_acc} = acc + reg2 + carry_in;
             SUB: {carry_out, alu_acc} = acc - reg2;
-            
-            // Logical Operations
             AND: alu_acc = acc & reg2;
             OR : alu_acc = acc | reg2;
             XOR: alu_acc = acc ^ reg2;
             INV: alu_acc = ~acc;
-            default: alu_acc = acc; // JZ falls here safely; math passes through
+            default: alu_acc = acc; 
         endcase
 
-        // Overflow flags calculation
         if (op == ADD || op == ADC)
             nxt_v = (acc == reg2) && (alu_acc != acc);
         else if (op == SUB)
@@ -74,20 +82,18 @@ module micro_cpu_split_jz (
     end
 
     // ==========================================================
-    // CONCERN B: Pure Control Flow Engine (JZ Lives Privately Here)
+    // 4. CONCERN B: Pure Control Flow Engine
     // ==========================================================
     always @(*) begin
-        // Default: Step to the next memory address sequentially
         pc_next = pc + 1'b1;
 
-        // Isolate the JZ condition entirely away from the ALU case statement
         if ((op == JZ) && flag_z) begin
-            pc_next = {3'b000, reg2[4:0]}; // Override and jump to target
+            pc_next = {3'b000, reg2[4:0]}; 
         end
     end
 
     // ==========================================================
-    // CONCERN C: Flattened Sequential Storage (Pure Step Engine)
+    // 5. CONCERN C: Flattened Sequential Storage
     // ==========================================================
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -95,9 +101,9 @@ module micro_cpu_split_jz (
             cacc   <= 9'h000;
             flag_v <= 1'b0;
         end else begin
-            pc     <= pc_next;    // Absorbs branching state cleanly
+            pc     <= pc_next;    
             flag_v <= nxt_v;
-            cacc   <= final_cacc; // Absorbs ALU math state cleanly
+            cacc   <= final_cacc; 
         end
     end
 endmodule
