@@ -1,6 +1,7 @@
 // mini8.v: A minimal play 8-bit CPU
 //
 // Editing: Only change lines if really needed, any other changes ask
+
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
@@ -10,22 +11,24 @@ module mini8 (
     output wire       c, 
     output wire       z, 
     output wire       n, 
-    output reg        v  
+    output wire       v  
 );
 
     // ==========================================================
     // 1. Storage & Wire Aliases (The Background Map)
     // ==========================================================
-    reg [8:0] cacc;        
-    wire [7:0] acc;        
-    wire       carry_in;   
-    
-    assign acc      = cacc[7:0];
-    assign carry_in = cacc;
+    reg        c_reg;
+    reg [7:0]  tos;        
+    reg [7:0]  nos;
+    reg [7:0]  n2;
 
-    assign c   = carry_in;
-    assign z   = (acc == 8'd0); 
-    assign n   = acc;
+    assign acc      = tos;
+    assign carry_in = c_reg;
+
+    assign c   = c_reg;
+    assign z   = (tos == 8'd0); 
+    assign n   = tos;
+    assign v   = 1'b0; 
 
     // ==========================================================
     // 2. INLINE PROGRAM ROM (No Submodule Needed)
@@ -34,79 +37,122 @@ module mini8 (
     
     always @(*) begin
         case(pc)
-            // Layout: [Opcode 3-bit] [Data/Address 5-bit]
-            8'h00: instruction = 8'b101_00010; // OR  Immediate 2   -> Acc = 2
-            8'h01: instruction = 8'b010_00001; // SUB Immediate 1   -> Acc = 1 (flag_z=0)
-            8'h02: instruction = 8'b011_00001; // JZ to Address 01  -> flag_z is 0, passes through
-            8'h03: instruction = 8'b010_00001; // SUB Immediate 1   -> Acc = 0 (flag_z=1)
-            8'h04: instruction = 8'b011_00001; // JZ to Address 01  -> flag_z is 1! Loops back!
-            8'h05: instruction = 8'b111_00000; // INV Accumulator   -> Escaped! Acc = 255
-            default: instruction=8'b011_00000; // Idle lock loop
+            8'h00: instruction = 8'b0_0000101;  // LIT 5          -> Push 5 onto stack
+            8'h01: instruction = 8'b0_0000011;  // LIT 3          -> Push 3 onto stack
+            8'h02: instruction = 8'b1_0001_000; // GROUP 1, ADD  -> TOS = 8 (implicitly drops stack)
+            8'h03: instruction = 8'b1_0001_111; // GROUP 1, DROP -> Drops TOS, NOS becomes new TOS
+            default: instruction = 8'h00;
         endcase
     end
 
-    // Instruction Splits
-    localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, JZ  = 3'b011,
-               AND = 3'b100, OR  = 3'b101, XOR = 3'b110, INV = 3'b111;
+    // Instruction Decoder Extraction
+    wire is_lit    = !instruction[7];         
+    wire [6:0] lit_data = instruction[6:0];      
+    
+    wire [3:0] grp  = instruction[6:3];          
+    wire [2:0] sub_op = instruction[2:0];        
 
-    wire [2:0] op   = instruction[7:5];
-    wire [7:0] reg2 = instruction[4:0];
+    // Group Selection Localparams
+    localparam GRP_ALU   = 4'b0001,
+               GRP_JZ    = 4'b0010,
+               GRP_STACK = 4'b0100;
+
+    // ALU Sub-instruction Opcodes
+    localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, SBC = 3'b011,
+               AND = 3'b100, OR  = 3'b101, XOR = 3'b110, DROP = 3'b111;
 
     // Interconnect Nets
-    reg [7:0] alu_acc;      
-    reg       carry_out;    
-    wire [8:0] final_cacc = {carry_out, alu_acc}; 
-    reg       nxt_v;
+    reg [7:0] nxt_tos;      
+    reg       nxt_carry;    
     reg [7:0] pc_next;      
+
+    // Factored Next-State Stack Nets
+    reg [7:0] nxt_nos;
+    reg [7:0] nxt_n2;
+
+    // Direct Control Wire Assertions
+    wire do_push = is_lit;
+    wire do_drop = (!is_lit && (grp == GRP_ALU)); 
 
     // ==========================================================
     // 3. CONCERN A: Pure ALU Math Engine
     // ==========================================================
     always @(*) begin
-        carry_out = carry_in; 
-        alu_acc   = acc;      
-        nxt_v     = 1'b0;
+        nxt_carry = c_reg; 
+        nxt_tos   = tos;      
 
-        case (op)
-            ADD: {carry_out, alu_acc} = acc + reg2;
-            ADC: {carry_out, alu_acc} = acc + reg2 + carry_in;
-            SUB: {carry_out, alu_acc} = acc - reg2;
-            AND: alu_acc = acc & reg2;
-            OR : alu_acc = acc | reg2;
-            XOR: alu_acc = acc ^ reg2;
-            INV: alu_acc = ~acc;
-            default: alu_acc = acc; 
-        endcase
-
-        if (op == ADD || op == ADC)
-            nxt_v = (acc == reg2) && (alu_acc != acc);
-        else if (op == SUB)
-            nxt_v = (acc != reg2) && (alu_acc != acc);
-    end
-
-    // ==========================================================
-    // 4. CONCERN B: Pure Control Flow Engine
-    // ==========================================================
-    always @(*) begin
-        pc_next = pc + 1'b1;
-
-        if ((op == JZ) && z) begin
-            pc_next = {3'b000, reg2[4:0]}; 
+        if (is_lit) begin
+            nxt_carry = 1'b0;
+            nxt_tos   = {1'b0, lit_data}; 
+        end else if (grp == GRP_ALU) begin
+            case (sub_op)
+                ADD:  {nxt_carry, nxt_tos} = tos + nos;
+                ADC:  {nxt_carry, nxt_tos} = tos + nos + c_reg;
+                SUB:  {nxt_carry, nxt_tos} = tos - nos;
+                SBC:  {nxt_carry, nxt_tos} = tos - nos - c_reg;
+                AND:  nxt_tos = tos & nos;
+                OR :  nxt_tos = tos | nos;
+                XOR:  nxt_tos = tos ^ nos;
+                DROP: nxt_tos = nos; 
+                default: nxt_tos = tos;
+            endcase
         end
     end
 
     // ==========================================================
-    // 5. CONCERN C: Flattened Sequential Storage
+    // 4. CONCERN B: Centralized Stack Factorization Block
+    // ==========================================================
+    always @(*) begin
+        nxt_nos = nos;
+        nxt_n2  = n2;
+
+        if (do_push) begin
+            nxt_nos = tos; 
+            nxt_n2  = nos;
+        end else if (do_drop) begin
+            nxt_nos = n2;    
+            nxt_n2  = 8'h00; 
+        end
+    end
+
+    // ==========================================================
+    // 5. CONCERN C: Pure Control Flow Engine (JZ Isolated Block)
+    // ==========================================================
+    always @(*) begin
+        pc_next = pc + 1'b1;
+
+        if (!is_lit && (grp == GRP_JZ) && z) begin
+            pc_next = nos; 
+        end
+    end
+
+    // ==========================================================
+    // 6. CONCERN D: Other Stack Ops Engine (Isolated Block)
+    // ==========================================================
+    always @(*) begin
+        if (!is_lit && (grp == GRP_STACK)) begin
+            case (sub_op)
+                default: begin nxt_nos = nos; nxt_n2 = n2; end
+            endcase
+        end
+    end
+
+    // ==========================================================
+    // 7. CONCERN E: Flattened Sequential Storage
     // ==========================================================
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            pc     <= 8'h00;
-            cacc   <= 9'h000;
-            v      <= 1'b0;
+            pc    <= 8'h00;
+            c_reg <= 1'b0;
+            tos   <= 8'h00;
+            nos   <= 8'h00;
+            n2    <= 8'h00;
         end else begin
-            pc     <= pc_next;    
-            v      <= nxt_v;
-            cacc   <= final_cacc; 
+            pc    <= pc_next;    
+            c_reg <= nxt_carry; // Split into distinct, clear single lines
+            tos   <= nxt_tos;   // Split into distinct, clear single lines
+            nos   <= nxt_nos;
+            n2    <= nxt_n2;
         end
     end
 endmodule
