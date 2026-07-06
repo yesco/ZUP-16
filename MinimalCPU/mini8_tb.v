@@ -44,27 +44,28 @@ module mini8_tb;
         end
     end
 
-    // Capture dynamic argument field depending on the active instruction layout format
-    wire [7:0] dynamic_arg = cpu.is_lit ? {1'b0, cpu.lit_data} : {5'b00000, cpu.sub_op};
+    // --- NEW: Dynamic Argument String Formatter ---
+    // Declares 24 bits to hold either 3 characters (" 05") or 3 blank spaces ("   ")
+    reg [23:0] arg_str;
+    always @(*) begin
+        if (cpu.is_lit) begin
+            // Converts the raw hex data byte into its literal ASCII string representation
+            $sformat(arg_str, "%02h ", cpu.lit_data);
+        end else begin
+            arg_str = "   "; // Print three blank character spaces if it is an ALU op
+        end
+    end
 
     initial begin
         // Print formatting header for your terminal screen
         $display("------------------------------------------");
-        $display(" TIME  | PC | INSTR | Z C N V TOS NOS N2");
+        $display(" TIME  | PC | INSTR  | Z C N V TOS NOS N2");
         $display("------------------------------------------");
         
-        if (cpu.is_lit) begin
-          // Target loop hook: Prints data automatically whenever variables change
-          $monitor("%6d | %02h | %s%02h | %b %b %b %b  %02h %02h",
-                   $time, cpu.pc, mnemonic, dynamic_arg, cpu.z, cpu.c, cpu.n,
-                   cpu.acc, cpu.nos, cpu.n2);
-        end else begin
-          // Target loop hook: Prints data automatically whenever variables change
-          $monitor("%6d | %02h | %s   | %b %b %b %b  %02h %02h",
-                   $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.n,
-                   cpu.acc, cpu.nos, cpu.n2);
-	end
- 
+        // Single flat monitor that checks our dynamic string net on every change
+        $monitor("%6d | %02h | %s%s | %b %b %b %b  %02h %02h %02h",
+                 $time, cpu.pc, mnemonic, arg_str, cpu.z, cpu.c, cpu.n, cpu.v,
+                 cpu.tos, cpu.nos, cpu.n2);
 
         // 2. Perform the safe Hardware Reset
         clk = 0;
