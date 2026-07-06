@@ -216,7 +216,7 @@ module mini8 (
          {nxt_c, nxt_tos} = a_mux + b_mux + cin;
 
          // PASS 2: Logical operations cleanly overwrite nxt_tos if active
-         if (grp == `ALU) begin
+         if (grp[1]) begin
 
             // DROP logic embedded directly
             nxt_nos = n2;
@@ -228,14 +228,19 @@ module mini8 (
               `DROP: nxt_tos = nos;
             endcase
 
-         end else begin
+         end else if (sub_op[2]) begin
 
             case (sub_op)
-              `SHR:  begin nxt_tos = tos /  2; nxt_c = tos[0]; end 
-              `SHR4: begin nxt_tos = tos / 16; nxt_c = tos[4]; end
-              `SHL:  begin nxt_tos = tos *  2; nxt_c = tos[7]; end 
-              `SHL4: begin nxt_tos = tos * 16; nxt_c = tos[3]; end 
+	      `SHR:  begin nxt_tos = tos /  2; end 
+	      `SHR4: begin nxt_tos = tos / 16; end
+	      `SHL:  begin nxt_tos = tos *  2; end 
+	      `SHL4: begin nxt_tos = tos * 16; end 
             endcase
+            
+	    // saves one LUT, lol
+	    if (grp == `REG && sub_op[2])
+	      nxt_c = sub_op[1] ? (sub_op[0] ? tos[3] : tos[7]) : (sub_op[0] ? tos[4] : tos[0]);
+
          end
 
       end else if (grp == `STACK) begin
