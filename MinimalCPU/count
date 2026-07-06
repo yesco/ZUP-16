@@ -1,0 +1,2 @@
+../tang $1 2>/dev/null| grep -P '^     *\d+ (\w+|  [A-Z]+)' | grep -A 40 $1
+
