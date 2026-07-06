@@ -1,3 +1,7 @@
+// mini8.v: A mini8 stack cpu
+//
+// Editing: Only change lines if really needed, any other changes ask
+
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
@@ -57,11 +61,15 @@ module mini8 (
     wire do_drop = (!is_lit && (grp == GRP_ALU)); 
 
     // ==========================================================
-    // 3. CONCERN A: Pure ALU Math Engine
+    // 3. CONCERN A: Pure ALU Math & Stack Engine
     // ==========================================================
     always @(*) begin
+        // Top-level initializations now work because they are unified in one block
+        nxt_tos   = tos;
+        nxt_nos   = nos;
+        nxt_n2    = n2;
         nxt_carry = c_reg; 
-        nxt_tos   = tos;      
+        nxt_pc    = pc + 1'b1;
 
         if (is_lit) begin
             nxt_carry = 1'b0;
@@ -76,19 +84,10 @@ module mini8 (
                 OR :  nxt_tos = tos | nos;
                 XOR:  nxt_tos = tos ^ nos;
                 DROP: nxt_tos = nos; 
-                default: nxt_tos = tos;
             endcase
         end
-    end
 
-    // ==========================================================
-    // 4. CONCERN B: Centralized Stack Factorization Block
-    // ==========================================================
-    always @(*) begin
-        nxt_nos = nos;
-        nxt_n2  = n2;
-        nxt_pc  = pc + 1'b1;
-
+        // Clean downstream overrides that do not conflict
         if (do_push) begin
             nxt_nos = tos; 
             nxt_n2  = nos;
