@@ -1,7 +1,3 @@
-// mini8.v: A mini8 stack cpu
-//
-// Editing: Only change lines if really needed, any other changes ask
-
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
@@ -60,15 +56,9 @@ module mini8 (
     wire do_push = is_lit;
     wire do_drop = (!is_lit && (grp == GRP_ALU)); 
 
-    // --- Factorized Arithmetic Nets ---
-    reg [7:0] op_a;
-    reg [7:0] op_b;
+    // --- Single-Adder Control Mux Nets ---
+    reg [7:0] b_mux;
     reg       cin;
-    
-    reg [7:0] sum_out;
-    reg       cout_sum;
-    reg [7:0] diff_out;
-    reg       cout_diff;
 
     // ==========================================================
     // 3. CONCERN A: Pure ALU Math & Stack Engine
@@ -81,49 +71,34 @@ module mini8 (
         nxt_carry = c_reg; 
         nxt_pc    = pc + 1'b1;
 
-        // Shared Operand Route Defaults
-        op_a = tos;
-        op_b = nos;
-        cin  = 1'b0;
-
-        // Centralized Shared Math Hardware Blocks (Only 1 Add line, 1 Sub line)
-        {cout_sum,  sum_out}  = op_a + op_b + cin;
-        {cout_diff, diff_out} = op_a - op_b - cin;
+        // Shared Operand Route Baseline Defaults
+        b_mux = nos;
+        cin   = 1'b0;
 
         if (is_lit) begin
             nxt_carry = 1'b0;
             nxt_tos   = {1'b0, lit_data}; 
         end else if (grp == GRP_ALU) begin
+            
+            // PASS 1: Set up the routing parameters for arithmetic operations
             case (sub_op)
-	        // TODO: this is more beatiful, but cost more!
-   	        // ADD:  {nxt_carry, nxt_tos} = tos + nos;
-	        // ADC:  {nxt_carry, nxt_tos} = tos + nos + c_reg;
-                // SUB:  {nxt_carry, nxt_tos} = tos - nos;
-                // SBC:  {nxt_carry, nxt_tos} = tos - nos - c_reg;
-                ADD: begin
-                    cin = 1'b0;
-                    nxt_tos = sum_out;
-                    nxt_carry = cout_sum;
-                end
-                ADC: begin
-                    cin = c_reg;
-                    nxt_tos = sum_out;
-                    nxt_carry = cout_sum;
-                end
-                SUB: begin
-                    cin = 1'b0;
-                    nxt_tos = diff_out;
-                    nxt_carry = cout_diff;
-                end
-                SBC: begin
-                    cin = c_reg;
-                    nxt_tos = diff_out;
-                    nxt_carry = cout_diff;
-                end
+                ADD: begin b_mux = nos;  cin = 1'b0;    end
+                ADC: begin b_mux = nos;  cin = c_reg;   end
+                SUB: begin b_mux = ~nos; cin = 1'b1;    end
+                SBC: begin b_mux = ~nos; cin = ~c_reg;   end
+                default: begin b_mux = nos; cin = 1'b0; end
+            endcase
+
+            // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
+            {nxt_carry, nxt_tos} = tos + b_mux + cin;
+
+            // PASS 2: Let logical operations cleanly overwrite nxt_tos if active
+            case (sub_op)
                 AND:  nxt_tos = tos & nos;
                 OR :  nxt_tos = tos | nos;
                 XOR:  nxt_tos = tos ^ nos;
-                DROP: nxt_tos = nos; 
+                DROP: nxt_tos = nos;
+                default: begin end // Arithmetic operations pass through untouched
             endcase
         end
 
