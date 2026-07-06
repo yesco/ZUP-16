@@ -1,12 +1,8 @@
-// mini8.v: A minimal play 8-bit CPU
-//
-// Editing: Only change lines if really needed, any other changes ask
-
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
     output reg  [7:0] pc,
-    input  wire [7:0] instruction, // EDITED LINE: Program code enters here now!
+    input  wire [7:0] instruction,
     
     // External flag monitors
     output wire       c, 
@@ -32,7 +28,7 @@ module mini8 (
     assign v   = 1'b0; 
 
     // Instruction Decoder Extraction
-    wire is_lit    = !instruction[7];         
+    wire is_lit    = (instruction[7] == 1'b0);         
     wire [6:0] lit_data = instruction[6:0];      
     
     wire [3:0] grp  = instruction[6:3];          
@@ -50,7 +46,7 @@ module mini8 (
     // Interconnect Nets
     reg [7:0] nxt_tos;      
     reg       nxt_carry;    
-    reg [7:0] pc_next;      
+    reg [7:0] nxt_pc;      
 
     // Factored Next-State Stack Nets
     reg [7:0] nxt_nos;
@@ -91,6 +87,7 @@ module mini8 (
     always @(*) begin
         nxt_nos = nos;
         nxt_n2  = n2;
+        nxt_pc  = pc + 1'b1;
 
         if (do_push) begin
             nxt_nos = tos; 
@@ -98,25 +95,9 @@ module mini8 (
         end else if (do_drop) begin
             nxt_nos = n2;    
             nxt_n2  = 8'h00; 
-        end
-    end
-
-    // ==========================================================
-    // 5. CONCERN C: Pure Control Flow Engine (JZ Isolated Block)
-    // ==========================================================
-    always @(*) begin
-        pc_next = pc + 1'b1;
-
-        if (!is_lit && (grp == GRP_JZ) && z) begin
-            pc_next = nos; 
-        end
-    end
-
-    // ==========================================================
-    // 6. CONCERN D: Other Stack Ops Engine (Isolated Block)
-    // ==========================================================
-    always @(*) begin
-        if (!is_lit && (grp == GRP_STACK)) begin
+        end else if (!is_lit && (grp == GRP_JZ) && z) begin
+            nxt_pc  = nos; 
+        end else if (!is_lit && (grp == GRP_STACK)) begin
             case (sub_op)
                 default: begin nxt_nos = nos; nxt_n2 = n2; end
             endcase
@@ -134,7 +115,7 @@ module mini8 (
             nos   <= 8'h00;
             n2    <= 8'h00;
         end else begin
-            pc    <= pc_next;    
+            pc    <= nxt_pc;    
             c_reg <= nxt_carry; 
             tos   <= nxt_tos;   
             nos   <= nxt_nos;

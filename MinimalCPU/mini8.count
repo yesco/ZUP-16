@@ -1,19 +1,18 @@
-      223 mini8
-      230 wires
-      450 wire bits
-      230 public wires
-      450 public wire bits
+      204 mini8
+      234 wires
+      460 wire bits
+      234 public wires
+      460 public wire bits
         8 ports
        22 port bits
-      223 cells
-       16   DL
+      204 cells
         1   GND
        10   IBUF
-       15   LUT1
+       14   LUT1
        22   LUT2
        35   LUT3
-       53   LUT4
-       42   MUX2_LUT5
+       52   LUT4
+       41   MUX2_LUT5
        15   MUX2_LUT6
         1   MUX2_LUT7
        12   OBUF
