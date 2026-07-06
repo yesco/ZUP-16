@@ -39,11 +39,21 @@ module mini8_tb;
                         3'b101: mnemonic = "OR  ";
                         3'b110: mnemonic = "XOR ";
                         3'b111: mnemonic = "DROP";
-                        default: mnemonic = "??? ";
                     endcase
                 end
                 4'b0010: mnemonic = "JZ  "; // GRP_JZ
-                4'b0100: mnemonic = "stk "; // GRP_STACK
+                4'b0100: begin  // GRP_STACK
+                    case (cpu.sub_op)
+                        3'b000: mnemonic = "st0 ";
+                        3'b001: mnemonic = "st1 ";
+                        3'b010: mnemonic = "st2 ";
+                        3'b011: mnemonic = "st3 ";
+                        3'b100: mnemonic = "st4 "; 
+                        3'b101: mnemonic = "st5 ";
+                        3'b110: mnemonic = "st6 ";
+                        3'b111: mnemonic = "SWAP";
+                    endcase // case (cpu.sub_op)
+                end
                 default: mnemonic = "--- ";
             endcase
         end
@@ -66,10 +76,12 @@ module mini8_tb;
         instruction_rom[8'h02] = 8'b0_0000011;  // LIT 3
         instruction_rom[8'h03] = 8'b1_0001_000; // GROUP 1, ADD
         instruction_rom[8'h04] = 8'b1_0001_000; // GROUP 1, ADD
-        instruction_rom[8'h05] = 8'b1_0001_111; // GROUP 1, DROP
+        instruction_rom[8'h05] = 8'b1_0100_111; // GROUP 3, SWAP
+        instruction_rom[8'h06] = 8'b1_0100_111; // GROUP 3, SWAP
+        instruction_rom[8'h07] = 8'b1_0001_111; // GROUP 1, DROP
         
         // EDITED LINE: Fixed the index bound to start at 6 so it skips your valid program code
-        for (integer i = 6; i < 256; i = i + 1) begin
+        for (integer i = 8; i < 256; i = i + 1) begin
             instruction_rom[i] = 8'h00;
         end
 

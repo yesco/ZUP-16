@@ -43,6 +43,9 @@ module mini8 (
     localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, SBC = 3'b011,
                AND = 3'b100, OR  = 3'b101, XOR = 3'b110, DROP = 3'b111;
 
+    // STK Sub-instruction Opcodes
+    localparam SWAP = 3'b111;
+
     // Interconnect Nets
     reg [7:0] nxt_tos;      
     reg       nxt_carry;    
@@ -75,9 +78,12 @@ module mini8 (
         b_mux = nos;
         cin   = 1'b0;
 
+
         if (is_lit) begin
+
             nxt_carry = 1'b0;
             nxt_tos   = {1'b0, lit_data}; 
+
         end else if (grp == GRP_ALU) begin
             
             // PASS 1: Set up the routing parameters for arithmetic operations
@@ -100,21 +106,26 @@ module mini8 (
                 DROP: nxt_tos = nos;
                 default: begin end // Arithmetic operations pass through untouched
             endcase
+
+        end else if (grp == GRP_STACK) begin
+	   
+            case (sub_op)
+                SWAP: begin nxt_tos = nos; nxt_nos = tos; end
+            endcase
+
         end
 
         // Clean downstream overrides
         if (do_push) begin
-            nxt_nos = tos; 
+            nxt_nos = tos;
             nxt_n2  = nos;
         end else if (do_drop) begin
-            nxt_nos = n2;    
+            nxt_nos = n2;
             nxt_n2  = 8'h00; 
-        end else if (!is_lit && (grp == GRP_JZ) && z) begin
-            nxt_pc  = nos; 
-        end else if (!is_lit && (grp == GRP_STACK)) begin
-            case (sub_op)
-                default: begin nxt_nos = nos; nxt_n2 = n2; end
-            endcase
+        end else if (is_lit) begin
+	    // nothing
+        end else if (grp == GRP_JZ && z) begin
+            nxt_pc  = nos;
         end
     end
 
