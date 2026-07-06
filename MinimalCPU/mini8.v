@@ -60,26 +60,66 @@ module mini8 (
     wire do_push = is_lit;
     wire do_drop = (!is_lit && (grp == GRP_ALU)); 
 
+    // --- Factorized Arithmetic Nets ---
+    reg [7:0] op_a;
+    reg [7:0] op_b;
+    reg       cin;
+    
+    reg [7:0] sum_out;
+    reg       cout_sum;
+    reg [7:0] diff_out;
+    reg       cout_diff;
+
     // ==========================================================
     // 3. CONCERN A: Pure ALU Math & Stack Engine
     // ==========================================================
     always @(*) begin
-        // Top-level initializations now work because they are unified in one block
+        // Top-level initializations
         nxt_tos   = tos;
         nxt_nos   = nos;
         nxt_n2    = n2;
         nxt_carry = c_reg; 
         nxt_pc    = pc + 1'b1;
 
+        // Shared Operand Route Defaults
+        op_a = tos;
+        op_b = nos;
+        cin  = 1'b0;
+
+        // Centralized Shared Math Hardware Blocks (Only 1 Add line, 1 Sub line)
+        {cout_sum,  sum_out}  = op_a + op_b + cin;
+        {cout_diff, diff_out} = op_a - op_b - cin;
+
         if (is_lit) begin
             nxt_carry = 1'b0;
             nxt_tos   = {1'b0, lit_data}; 
         end else if (grp == GRP_ALU) begin
             case (sub_op)
-                ADD:  {nxt_carry, nxt_tos} = tos + nos;
-                ADC:  {nxt_carry, nxt_tos} = tos + nos + c_reg;
-                SUB:  {nxt_carry, nxt_tos} = tos - nos;
-                SBC:  {nxt_carry, nxt_tos} = tos - nos - c_reg;
+	        // TODO: this is more beatiful, but cost more!
+   	        // ADD:  {nxt_carry, nxt_tos} = tos + nos;
+	        // ADC:  {nxt_carry, nxt_tos} = tos + nos + c_reg;
+                // SUB:  {nxt_carry, nxt_tos} = tos - nos;
+                // SBC:  {nxt_carry, nxt_tos} = tos - nos - c_reg;
+                ADD: begin
+                    cin = 1'b0;
+                    nxt_tos = sum_out;
+                    nxt_carry = cout_sum;
+                end
+                ADC: begin
+                    cin = c_reg;
+                    nxt_tos = sum_out;
+                    nxt_carry = cout_sum;
+                end
+                SUB: begin
+                    cin = 1'b0;
+                    nxt_tos = diff_out;
+                    nxt_carry = cout_diff;
+                end
+                SBC: begin
+                    cin = c_reg;
+                    nxt_tos = diff_out;
+                    nxt_carry = cout_diff;
+                end
                 AND:  nxt_tos = tos & nos;
                 OR :  nxt_tos = tos | nos;
                 XOR:  nxt_tos = tos ^ nos;
@@ -87,7 +127,7 @@ module mini8 (
             endcase
         end
 
-        // Clean downstream overrides that do not conflict
+        // Clean downstream overrides
         if (do_push) begin
             nxt_nos = tos; 
             nxt_n2  = nos;

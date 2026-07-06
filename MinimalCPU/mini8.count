@@ -1,23 +1,22 @@
-      204 mini8
-      234 wires
-      460 wire bits
-      234 public wires
-      460 public wire bits
+      171 mini8
+      188 wires
+      400 wire bits
+      188 public wires
+      400 public wire bits
         8 ports
        22 port bits
-      204 cells
+      171 cells
         1   GND
        10   IBUF
        14   LUT1
-       22   LUT2
-       35   LUT3
-       52   LUT4
-       41   MUX2_LUT5
-       15   MUX2_LUT6
-        1   MUX2_LUT7
+       20   LUT2
+       18   LUT3
+       48   LUT4
+       36   MUX2_LUT5
+       11   MUX2_LUT6
        12   OBUF
         1   VCC
-       77 submodules
-       44   ALU
+       59 submodules
+       26   ALU
         8   DFFC
        25   DFFCE
