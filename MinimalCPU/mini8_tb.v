@@ -90,6 +90,16 @@ module mini8_tb;
       `PROM(3);        
       `PROM(`iTUCK);
       `PROM(`iROT);    
+      `PROM(`iINC);
+      `PROM(`iINC);
+      `PROM(`iINC);
+      `PROM(`iDEC);
+      `PROM(`iDEC);
+      `PROM(`iDEC);
+      `PROM(`iSHL);
+      `PROM(`iSHL);
+      `PROM(`iSHR);
+      `PROM(`iSHR);
       
       $display("------------------------------------------");
       $display(" TIME  | PC | OP | Z C N V N2 NOS TOS");

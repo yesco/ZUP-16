@@ -138,8 +138,8 @@ module mini8 (
    reg [7:0]  nos;
    reg [7:0]  n2;
 
-   assign acc      = tos;
-   assign carry_in = c_reg;
+   assign acc  = tos;
+   assign c_in = c_reg;
 
    assign c = c_reg;
    assign z = (tos == 8'd0); 
@@ -155,7 +155,7 @@ module mini8 (
 
    // Interconnect Nets
    reg [7:0]  nxt_tos;
-   reg        nxt_carry;    
+   reg        nxt_c;    
    reg [7:0]  nxt_pc;      
 
    // Factored Next-State Stack Nets
@@ -163,12 +163,13 @@ module mini8 (
    reg [7:0]  nxt_n2;
 
    // Direct Control Wire Assertions
-   wire	      do_push = is_lit || (!is_lit && (grp == `STACK) && ((sub_op == `DUP) || (sub_op == `OVER)));
+   wire       do_push = is_lit || (!is_lit && (grp == `STACK) && ((sub_op == `DUP) || (sub_op == `OVER)));
    // DONT REMOVE: is_lit is technically redudnat, but reduces LUT!
    wire       do_drop = !is_lit && (grp == `ALU); 
 
    // --- Single-Adder Control Mux Nets ---
    reg [7:0]  b_mux;
+   reg [7:0]  a_mux;
    reg        cin;
 
    // ==========================================================
@@ -179,48 +180,88 @@ module mini8 (
       nxt_tos   = tos;
       nxt_nos   = nos;
       nxt_n2    = n2;
-      nxt_carry = c_reg; 
+      nxt_c     = c_reg; 
       nxt_pc    = pc + 1'b1;
 
       // Shared Operand Route Baseline Defaults
-      b_mux = nos;
+      b_mux = tos;
+      a_mux = nos;
+      
       cin   = 1'b0;
 
       if (is_lit) begin
 
-         nxt_carry = 1'b0;
-         nxt_tos   = {1'b0, lit_data};
+         nxt_c   = 1'b0;
+         nxt_tos = {1'b0, lit_data};
 
-      end else if (grp == `ALU) begin
-         
+      end else if (grp == `ALU || grp == `REG) begin
+//      end else if (grp == `ALU) begin
+
          // PASS 1: Set up the routing parameters for arithmetic operations
          case (sub_op)
            `ADD: begin b_mux = tos;  cin = 0;     end
            `ADC: begin b_mux = tos;  cin = c_reg; end
            `SUB: begin b_mux = ~tos; cin = 1;     end
            `SBC: begin b_mux = ~tos; cin = ~c_reg;end
-         endcase
+         endcase // case (sub_op)
+
+	 if (grp == `REG) begin 
+            case (sub_op)
+              `INC: begin b_mux = tos; a_mux =  0;  cin = 1; end
+	      `DEC: begin b_mux = tos; a_mux = ~0;  cin = 0; end
+//	      `SHL: begin b_mxu = tos; a_mux = tos; cin = 0; end // no saving
+            endcase
+	 end
 
          // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
-         {nxt_carry, nxt_tos} = nos + b_mux + cin;
+         {nxt_c, nxt_tos} = a_mux + b_mux + cin;
+	 // TODO: nxt_c is set where we want to keep!
 
          // PASS 2: Let logical operations cleanly overwrite nxt_tos if active
-         case (sub_op)
-           `AND:  nxt_tos = tos & nos;
-           `OR :  nxt_tos = tos | nos;
-           `XOR:  nxt_tos = tos ^ nos;
-           `DROP: nxt_tos = nos;
+	 if (grp == `ALU) begin
+            case (sub_op)
+              `AND:  nxt_tos = tos & nos;
+              `OR :  nxt_tos = tos | nos;
+              `XOR:  nxt_tos = tos ^ nos;
+              `DROP: nxt_tos = nos;
+            endcase
+	 end else begin
+            case (sub_op)
+//         `ROR:  begin end
+	   // All these 126->169 (asr+shr+shl) ->181 (incl:4)
+//         `ASR:  begin nxt_tos ={tos[7],tos[7],tos[6:1]}; c = tos[0]; end
+
+         `SHR:  begin nxt_tos = tos /  2; nxt_c = tos[0]; end // -1 LUT! vs [6:1]
+         `SHR4: begin nxt_tos = tos / 16; nxt_c = tos[4]; end
+         `SHL:  begin nxt_tos = tos *  2; nxt_c = tos[7]; end // expensiver
+         `SHL4: begin nxt_tos = tos * 16; nxt_c = tos[3]; end // super expensive
          endcase
+	 end
+
+//       end else if (grp == `REG) begin
+
+//          case (sub_op)
+// 	   // inc+dec: 126->242 !!! use in arith => 201
+//          `INC:  begin nxt_tos = tos + 1; end
+//          `DEC:  begin nxt_tos = tos - 1; end
+// //         `ROR:  begin end
+// 	   // All these 126->169 (asr+shr+shl) ->181 (incl:4)
+//          `ASR:  begin nxt_tos ={tos[7],tos[7],tos[6:1]}; c = tos[0]; end
+//          `SHR:  begin nxt_tos = tos /  2;                nxt_c = tos[0]; end // -1 LUT! vs [6:1]
+//          `SHR4: begin nxt_tos = tos / 16;                nxt_c = tos[4]; end
+//          `SHL:  begin nxt_tos = tos *  2;                nxt_c = tos[7]; end
+//          `SHL4: begin nxt_tos = tos * 16;                nxt_c = tos[3]; end
+//          endcase
 
       end else if (grp == `STACK) begin
          
          case (sub_op)
            `OVER: begin nxt_tos = nos; end
-// TODO: +10 LUT: 138->148 LUT wait with this one... 
-//           `TUCK: begin nxt_n2  = tos; end
+           // TODO: +10 LUT: 138->148 LUT wait with this one... 
+           // `TUCK: begin nxt_n2  = tos; end
            `SWAP: begin nxt_tos = nos; b_mux   = tos; nxt_nos = b_mux; end
-// TODOO: +10 LUT: 129->138 LUT wiat with this one
-//           `ROT:  begin nxt_tos = n2;  nxt_nos = tos; nxt_n2  = nos;   end
+           // TODOO: +10 LUT: 129->138 LUT wiat with this one
+           // `ROT:  begin nxt_tos = n2;  nxt_nos = tos; nxt_n2  = nos;   end
          endcase
 
       end
@@ -251,7 +292,7 @@ module mini8 (
          n2    <= 8'h00;
       end else begin
          pc    <= nxt_pc;    
-         c_reg <= nxt_carry; 
+         c_reg <= nxt_c; 
          tos   <= nxt_tos;   
          nos   <= nxt_nos;
          n2    <= nxt_n2;
