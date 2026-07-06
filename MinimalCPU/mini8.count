@@ -1,8 +1,8 @@
       128 mini8
       127 wires
-      310 wire bits
+      312 wire bits
       127 public wires
-      310 public wire bits
+      312 public wire bits
         8 ports
        22 port bits
       128 cells
@@ -10,8 +10,8 @@
        10   IBUF
         3   LUT1
        17   LUT2
-       20   LUT3
-       47   LUT4
+       16   LUT3
+       51   LUT4
        17   MUX2_LUT5
        12   OBUF
         1   VCC

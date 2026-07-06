@@ -2,11 +2,126 @@
 //
 // Editing: Only change lines if really needed, any other changes ask
 
+// --- Master Global Architecture Definitions ---
+`define BITSY   4'b0000
+`define BITSY2  4'b0000
+`define LOOP    4'b0010
+`define LOOP2   4'b0011
+`define JSRRET  4'b0100
+`define JSRRET2 4'b0101
+`define BRANCH  4'b0110
+`define BRANCH2 4'b0111
+`define READ    4'b1000
+`define READ2   4'b1000
+`define WRITE   4'b1010
+`define WRITE2  4'b1011
+`define REG     4'b1100
+`define STACK   4'b1101
+`define ALU     4'b1110
+`define RSTACK  4'b1111
+
+// BITSY Sub-instruction Opcodes
+`define SIGN   3'b000
+`define bit14  3'b001
+`define bit13  3'b010
+`define bit12  3'b011
+`define bit11  3'b100
+`define bit10  3'b101
+`define bit09  3'b110
+`define bit08  3'b111
+`define bit07  3'b000
+`define bit06  3'b001
+`define bit05  3'b010
+`define bit04  3'b011
+`define bit03  3'b100
+`define bit02  3'b101
+`define bit01  3'b110
+`define bit00  3'b111
+
+// ALU Sub-instruction Opcodes
+`define ADD  3'b000
+`define ADC  3'b001
+`define SUB  3'b010
+`define SBC  3'b011
+`define AND  3'b100
+`define OR   3'b101
+`define XOR  3'b110
+`define DROP 3'b111
+
+// Register Ops (not moving stack)
+`define INC  3'b000
+`define DEC  3'b001
+`define ROR  3'b010
+`define ASR  3'b011
+`define SHR  3'b100
+`define SHR4 3'b101
+`define SHL  3'b110
+`define SHL4 3'b111
+
+// STK Sub-instruction Opcodes
+`define st0  3'b000
+`define MUL  3'b001
+`define NOP  3'b010
+`define ROT  3'b011
+`define SWAP 3'b100
+`define OVER 3'b101
+`define TUCK 3'b110
+`define DUP  3'b111
+
+// --- Fused Mnemonic String + 8-Bit Opcode Macro Constants ---
+`define iADD  {"ADD ", {1'b1, `ALU,   `ADD}}
+`define iADC  {"ADC ", {1'b1, `ALU,   `ADC}}
+`define iSUB  {"SUB ", {1'b1, `ALU,   `SUB}}
+`define iSBC  {"SBC ", {1'b1, `ALU,   `SBC}}
+`define iAND  {"AND ", {1'b1, `ALU,   `AND}}
+`define iOR   {"OR  ", {1'b1, `ALU,   `OR}}
+`define iXOR  {"XOR ", {1'b1, `ALU,   `XOR}}
+`define iDROP {"DROP", {1'b1, `ALU,   `DROP}}
+
+`define ist0  {"st0 ", {1'b1, `STACK, `st0}}
+`define iMUL  {"MUL ", {1'b1, `STACK, `MUL}}
+`define iNOP  {"NOP ", {1'b1, `STACK, `NOP}}
+`define iROT  {"ROT ", {1'b1, `STACK, `ROT}}
+`define iSWAP {"SWAP", {1'b1, `STACK, `SWAP}}
+`define iOVER {"OVER", {1'b1, `STACK, `OVER}}
+`define iTUCK {"TUCK", {1'b1, `STACK, `TUCK}}
+`define iDUP  {"DUP ", {1'b1, `STACK, `DUP}}
+
+`define iINC  {"INC ", {1'b1, `REG,   `INC}}
+`define iDEC  {"DEC ", {1'b1, `REG,   `DEC}}
+`define iROR  {"ROR ", {1'b1, `REG,   `ROR}}
+`define iASR  {"ASR ", {1'b1, `REG,   `ASR}}
+`define iSHR  {"SHR ", {1'b1, `REG,   `SHR}}
+`define iSHR4 {"SHR4", {1'b1, `REG,   `SHR4}}
+`define iSHL  {"SHL ", {1'b1, `REG,   `SHL}}
+`define iSHL4 {"SHL4", {1'b1, `REG,   `SHL4}}
+
+`define iSIGN   {"SIGN", {1'b1, `BITSY, `SIGN}}
+`define ibit14  {"bt14", {1'b1, `BITSY, `bit14}}
+`define ibit13  {"bt13", {1'b1, `BITSY, `bit13}}
+`define ibit12  {"bt12", {1'b1, `BITSY, `bit12}}
+`define ibit11  {"bt11", {1'b1, `BITSY, `bit11}}
+`define ibit10  {"bt10", {1'b1, `BITSY, `bit10}}
+`define ibit09  {"bt09", {1'b1, `BITSY, `bit09}}
+`define ibit08  {"bt08", {1'b1, `BITSY, `bit08}}
+
+`define ibit07  {"bt07", {1'b1, `BITSY2, `bit07}}
+`define ibit06  {"bt06", {1'b1, `BITSY2, `bit06}}
+`define ibit05  {"bt05", {1'b1, `BITSY2, `bit05}}
+`define ibit04  {"bt04", {1'b1, `BITSY2, `bit04}}
+`define ibit03  {"bt03", {1'b1, `BITSY2, `bit03}}
+`define ibit02  {"bt02", {1'b1, `BITSY2, `bit02}}
+`define ibit01  {"bt01", {1'b1, `BITSY2, `bit01}}
+`define ibit00  {"bt00", {1'b1, `BITSY2, `bit00}}
+
+`define iJZ   {"JZ  ", {1'b1, `BRANCH,  3'b000}}
+`define iJNZ  {"JNZ ", {1'b1, `BRANCH2, 3'b000}}
+
 module mini8 (
               input  wire       clk, 
               input  wire       rst_n,
               output reg  [7:0] pc,
-              input  wire [7:0] instruction,
+              input  wire [7:0] op,
 
               // External flag monitors
               output wire       c, 
@@ -32,56 +147,11 @@ module mini8 (
    assign v = 1'b0; 
 
    // Instruction Decoder Extraction
-   wire       is_lit   = (instruction[7] == 1'b0);         
-   wire [6:0] lit_data = instruction[6:0];      
+   wire       is_lit   = (op[7] == 1'b0);         
+   wire [6:0] lit_data = op[6:0];      
    
-   wire [3:0] grp    = instruction[6:3];          
-   wire [2:0] sub_op = instruction[2:0];        
-
-   // Group Selection Localparams
-   localparam GRP_BITSY  = 4'b0000,
-              GRP_BITSY2 = 4'b0000,
-	      
-	      GRP_LOOP   = 4'b0010,
-	      GRP_LOOP2  = 4'b0011,
-
-	      GRP_JSRRET = 4'b0100,
-    	      GRP_JSRRET2= 4'b0101,
-
-	      GRP_BRANCH = 4'b0110,
-	      GRP_BRANCH2= 4'b0111,
-
-	      GRP_READ   = 4'b1000,
-	      GRP_READ2  = 4'b1000,
-
-	      GRP_WRITE  = 4'b1010,
-	      GRP_WRITE2 = 4'b1011,
-
-	      GRP_REG    = 4'b1100,
-              GRP_STACK  = 4'b1101,
-              GRP_ALU    = 4'b1110,
-              GRP_RSTACK = 4'b1111;
-
-
-   // BITSY Sub-instruction Opcodes
-   localparam SIGN  = 3'b000, bit14 = 3'b001, bit13 = 3'b010, bit12 = 3'b011,
-              bit11 = 3'b100, bit10 = 3'b101, bit09 = 3'b110, bit08 = 3'b111;
-   localparam bit07 = 3'b000, bit06 = 3'b001, bit05 = 3'b010, bit04 = 3'b011,
-              bit03 = 3'b100, bit02 = 3'b101, bit01 = 3'b110, bit00 = 3'b111;
-
-   // ALU Sub-instruction Opcodes
-   // TODO: maybe repurpose SBC
-   localparam ADD = 3'b000, ADC = 3'b001, SUB = 3'b010, SBC  = 3'b011,
-              AND = 3'b100, OR  = 3'b101, XOR = 3'b110, DROP = 3'b111;
-
-   // Register Ops (not moving stack)
-   localparam INC = 3'b000, DEC  = 3'b001, ROR = 3'b010, ASR  = 3'b011,
-              SHR = 3'b100, SHR4 = 3'b101, SHL = 3'b110, SHL4 = 3'b111;
-
-   // STK Sub-instruction Opcodes
-   localparam st0  = 3'b000, MUL  = 3'b001, NOP  = 3'b010, ROT = 3'b011,
-              SWAP = 3'b100, OVER = 3'b101, TUCK = 3'b110, DUP = 3'b111;
-
+   wire [3:0] grp    = op[6:3];          
+   wire [2:0] sub_op = op[2:0];        
 
    // Interconnect Nets
    reg [7:0]  nxt_tos;
@@ -93,8 +163,9 @@ module mini8 (
    reg [7:0]  nxt_n2;
 
    // Direct Control Wire Assertions
-   wire       do_push = is_lit || ((grp == GRP_STACK) && ((sub_op == DUP) || (sub_op == OVER) || (sub_op == TUCK)));
-   wire       do_drop = !is_lit && (grp == GRP_ALU); 
+   wire	      do_push = is_lit || (!is_lit && (grp == `STACK) && ((sub_op == `DUP) || (sub_op == `OVER)));
+   // DONT REMOVE: is_lit is technically redudnat, but reduces LUT!
+   wire       do_drop = !is_lit && (grp == `ALU); 
 
    // --- Single-Adder Control Mux Nets ---
    reg [7:0]  b_mux;
@@ -120,14 +191,14 @@ module mini8 (
          nxt_carry = 1'b0;
          nxt_tos   = {1'b0, lit_data};
 
-      end else if (grp == GRP_ALU) begin
+      end else if (grp == `ALU) begin
          
          // PASS 1: Set up the routing parameters for arithmetic operations
          case (sub_op)
-           ADD: begin b_mux = tos;  cin = 0;     end
-           ADC: begin b_mux = tos;  cin = c_reg; end
-           SUB: begin b_mux = ~tos; cin = 1;     end
-           SBC: begin b_mux = ~tos; cin = ~c_reg;end
+           `ADD: begin b_mux = tos;  cin = 0;     end
+           `ADC: begin b_mux = tos;  cin = c_reg; end
+           `SUB: begin b_mux = ~tos; cin = 1;     end
+           `SBC: begin b_mux = ~tos; cin = ~c_reg;end
          endcase
 
          // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
@@ -135,19 +206,21 @@ module mini8 (
 
          // PASS 2: Let logical operations cleanly overwrite nxt_tos if active
          case (sub_op)
-           AND:  nxt_tos = tos & nos;
-           OR :  nxt_tos = tos | nos;
-           XOR:  nxt_tos = tos ^ nos;
-           DROP: nxt_tos = nos;
+           `AND:  nxt_tos = tos & nos;
+           `OR :  nxt_tos = tos | nos;
+           `XOR:  nxt_tos = tos ^ nos;
+           `DROP: nxt_tos = nos;
          endcase
 
-      end else if (grp == GRP_STACK) begin
+      end else if (grp == `STACK) begin
          
          case (sub_op)
-           // DUP, OVER, and TUCK: implicit by do_push!
-           OVER: begin nxt_tos = nos; end
-           TUCK: begin nxt_tos = tos; end
-           SWAP: begin nxt_tos = nos; b_mux = tos; nxt_nos = b_mux; end
+           `OVER: begin nxt_tos = nos; end
+// TODO: +10 LUT: 138->148 LUT wait with this one... 
+//           `TUCK: begin nxt_n2  = tos; end
+           `SWAP: begin nxt_tos = nos; b_mux   = tos; nxt_nos = b_mux; end
+// TODOO: +10 LUT: 129->138 LUT wiat with this one
+//           `ROT:  begin nxt_tos = n2;  nxt_nos = tos; nxt_n2  = nos;   end
          endcase
 
       end
@@ -161,7 +234,7 @@ module mini8 (
          nxt_n2  = 8'h00; 
       end else if (is_lit) begin
          // nothing
-      end else if (grp == GRP_BRANCH && z) begin
+      end else if (grp == `BRANCH && z) begin
          nxt_pc  = nos;
       end
    end
