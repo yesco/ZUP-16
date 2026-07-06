@@ -11,10 +11,12 @@
 `define JSRRET2 4'b0101
 `define BRANCH  4'b0110
 `define BRANCH2 4'b0111
+
 `define READ    4'b1000
-`define READ2   4'b1000
+`define READ2   4'b1001
 `define WRITE   4'b1010
 `define WRITE2  4'b1011
+
 `define REG     4'b1100
 `define STACK   4'b1101
 `define ALU     4'b1110
@@ -144,10 +146,10 @@ module mini8 (
    assign c = c_reg;
    assign z = (tos == 8'd0); 
    assign n = tos;
-   assign v = 1'b0; 
+   assign v = 0;
 
    // Instruction Decoder Extraction
-   wire       is_lit   = (op[7] == 1'b0); // DON'T CHANGE: you keep messing it up!
+   wire       is_lit   = (op[7] == 0); // DON'T CHANGE: you keep messing it up!
    wire [6:0] lit_data = op[6:0];      
    
    wire [3:0] grp    = op[6:3];          
@@ -177,18 +179,18 @@ module mini8 (
       nxt_nos   = nos;
       nxt_n2    = n2;
       nxt_c     = c_reg; 
-      nxt_pc    = pc + 1'b1;
+      nxt_pc    = pc + 1;
 
       // Shared Operand Route Baseline Defaults
       b_mux = tos;
       a_mux = nos;
       
-      cin   = 1'b0;
+      cin   = 0;
 
       if (is_lit) begin
 
          // PUSH logic embedded directly
-         nxt_c   = 1'b0;
+         nxt_c   = 0;
          nxt_tos = {1'b0, lit_data};
          nxt_nos = tos;
          nxt_n2  = nos;
@@ -205,6 +207,7 @@ module mini8 (
 
          if (grp == `REG) begin 
 
+	    // TODO: if INC(+DEC) was ALU blocked, would it be chepaer?
             case (sub_op)
               `INC: begin b_mux = tos; a_mux =  0;  cin = 1; end
               `DEC: begin b_mux = tos; a_mux = ~0;  cin = 0; end
@@ -220,7 +223,7 @@ module mini8 (
 
             // DROP logic embedded directly
             nxt_nos = n2;
-            nxt_n2  = 8'h00;
+            nxt_n2  = 0;
             case (sub_op)
               `AND:  nxt_tos = tos & nos;
               `OR :  nxt_tos = tos | nos;
@@ -263,11 +266,11 @@ module mini8 (
    // ==========================================================
    always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
-         pc    <= 8'h00;
-         c_reg <= 1'b0;
-         tos   <= 8'h00;
-         nos   <= 8'h00;
-         n2    <= 8'h00;
+         pc    <= 0;
+         c_reg <= 0;
+         tos   <= 0;
+         nos   <= 0;
+         n2    <= 0;
       end else begin
          pc    <= nxt_pc;    
          c_reg <= nxt_c; 
