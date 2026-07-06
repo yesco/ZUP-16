@@ -68,8 +68,8 @@ module mini8_tb;
         instruction_rom[8'h04] = 8'b1_0001_000; // GROUP 1, ADD
         instruction_rom[8'h05] = 8'b1_0001_111; // GROUP 1, DROP
         
-        // Fill remaining memory entries with safe 0 values
-        for (integer i = 4; i < 256; i = i + 1) begin
+        // EDITED LINE: Fixed the index bound to start at 6 so it skips your valid program code
+        for (integer i = 6; i < 256; i = i + 1) begin
             instruction_rom[i] = 8'h00;
         end
 
@@ -78,7 +78,7 @@ module mini8_tb;
         $display(" TIME  | PC | INSTR  | Z C N V TOS NOS N2");
         $display("------------------------------------------");
         
-        $monitor("%6d | %02h | %s%s | %b %b %b %b  %02h %02h %02h",
+        $monitor("%6d | %02h |%s%s| %b %b %b %b  %02h %02h %02h",
                  $time, cpu.pc, mnemonic, arg_str, cpu.z, cpu.c, cpu.n, cpu.v,
                  cpu.tos, cpu.nos, cpu.n2);
 
