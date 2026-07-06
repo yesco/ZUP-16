@@ -171,6 +171,7 @@ module mini8 (
    // 3. CONCERN A: Pure ALU Math & Stack Engine
    // ==========================================================
    always @(*) begin
+
       // Top-level initializations
       nxt_tos   = tos;
       nxt_nos   = nos;
@@ -185,6 +186,7 @@ module mini8 (
       cin   = 1'b0;
 
       if (is_lit) begin
+
          // PUSH logic embedded directly
          nxt_c   = 1'b0;
          nxt_tos = {1'b0, lit_data};
@@ -202,10 +204,12 @@ module mini8 (
          endcase 
 
          if (grp == `REG) begin 
+
             case (sub_op)
               `INC: begin b_mux = tos; a_mux =  0;  cin = 1; end
               `DEC: begin b_mux = tos; a_mux = ~0;  cin = 0; end
             endcase
+
          end
 
          // THE ONLY ARITHMETIC LINE
@@ -213,6 +217,7 @@ module mini8 (
 
          // PASS 2: Logical operations cleanly overwrite nxt_tos if active
          if (grp == `ALU) begin
+
             // DROP logic embedded directly
             nxt_nos = n2;
             nxt_n2  = 8'h00;
@@ -222,7 +227,9 @@ module mini8 (
               `XOR:  nxt_tos = tos ^ nos;
               `DROP: nxt_tos = nos;
             endcase
+
          end else begin
+
             case (sub_op)
               `SHR:  begin nxt_tos = tos /  2; nxt_c = tos[0]; end 
               `SHR4: begin nxt_tos = tos / 16; nxt_c = tos[4]; end
