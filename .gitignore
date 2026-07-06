@@ -1,12 +1,17 @@
 # Prerequisites
 *.d
 *~
+*#*
+*.stat
+*.tmp
+build/
 
 # Object files
 *.o
 *.ko
 *.obj
 *.elf
+*.sim
 
 # Linker output
 *.ilk

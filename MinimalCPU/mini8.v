@@ -1,13 +1,14 @@
-module micro_cpu_inline_rom (
+// Editing: Only change lines if really needed
+module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
     output reg  [7:0] pc,
     
     // External flag monitors
-    output wire       flag_c, 
-    output wire       flag_z, 
-    output wire       flag_n, 
-    output reg        flag_v  
+    output wire       c, 
+    output wire       z, 
+    output wire       n, 
+    output reg        v  
 );
 
     // ==========================================================
@@ -20,9 +21,9 @@ module micro_cpu_inline_rom (
     assign acc      = cacc[7:0];
     assign carry_in = cacc;
 
-    assign flag_c   = carry_in;
-    assign flag_z   = (acc == 8'd0); 
-    assign flag_n   = acc;
+    assign c   = carry_in;
+    assign z   = (acc == 8'd0); 
+    assign n   = acc;
 
     // ==========================================================
     // 2. INLINE PROGRAM ROM (No Submodule Needed)
@@ -87,7 +88,7 @@ module micro_cpu_inline_rom (
     always @(*) begin
         pc_next = pc + 1'b1;
 
-        if ((op == JZ) && flag_z) begin
+        if ((op == JZ) && z) begin
             pc_next = {3'b000, reg2[4:0]}; 
         end
     end
@@ -99,10 +100,10 @@ module micro_cpu_inline_rom (
         if (!rst_n) begin
             pc     <= 8'h00;
             cacc   <= 9'h000;
-            flag_v <= 1'b0;
+            v      <= 1'b0;
         end else begin
             pc     <= pc_next;    
-            flag_v <= nxt_v;
+            v      <= nxt_v;
             cacc   <= final_cacc; 
         end
     end

@@ -1,0 +1,5 @@
+rm -f $1.sim
+iverilog -o $1.sim mini8.v $1_tb.v
+vvp $1.sim
+
+
