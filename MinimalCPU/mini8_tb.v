@@ -44,7 +44,7 @@ module mini8_tb;
                 4'b0010: mnemonic = "JZ  "; // GRP_JZ
                 4'b0100: begin  // GRP_STACK
                     case (cpu.sub_op)
-                        3'b000: mnemonic = "st0 ";
+                        3'b000: mnemonic = "DUP ";
                         3'b001: mnemonic = "st1 ";
                         3'b010: mnemonic = "st2 ";
                         3'b011: mnemonic = "st3 ";
@@ -78,7 +78,8 @@ module mini8_tb;
         instruction_rom[8'h04] = 8'b1_0001_000; // GROUP 1, ADD
         instruction_rom[8'h05] = 8'b1_0100_111; // GROUP 3, SWAP
         instruction_rom[8'h06] = 8'b1_0100_111; // GROUP 3, SWAP
-        instruction_rom[8'h07] = 8'b1_0001_111; // GROUP 1, DROP
+        instruction_rom[8'h07] = 8'b1_0100_000; // GROUP 3, DUP
+        instruction_rom[8'h08] = 8'b1_0001_111; // GROUP 1, DROP
         
         // EDITED LINE: Fixed the index bound to start at 6 so it skips your valid program code
         for (integer i = 8; i < 256; i = i + 1) begin

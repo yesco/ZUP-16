@@ -1,3 +1,7 @@
+// mini8.v: A mini8 stack cpu
+//
+// Editing: Only change lines if really needed, any other changes ask
+
 module mini8 (
     input  wire       clk, 
     input  wire       rst_n,
@@ -44,7 +48,8 @@ module mini8 (
                AND = 3'b100, OR  = 3'b101, XOR = 3'b110, DROP = 3'b111;
 
     // STK Sub-instruction Opcodes
-    localparam SWAP = 3'b111;
+    localparam DUP  = 3'b000,
+               SWAP = 3'b111;
 
     // Interconnect Nets
     reg [7:0] nxt_tos;      
@@ -56,7 +61,8 @@ module mini8 (
     reg [7:0] nxt_n2;
 
     // Direct Control Wire Assertions
-    wire do_push = is_lit;
+    // EDITED LINE: DUP automatically triggers your pre-existing push router logic
+    wire do_push = is_lit || (!is_lit && (grp == GRP_STACK) && (sub_op == DUP));
     wire do_drop = (!is_lit && (grp == GRP_ALU)); 
 
     // --- Single-Adder Control Mux Nets ---
@@ -77,7 +83,6 @@ module mini8 (
         // Shared Operand Route Baseline Defaults
         b_mux = nos;
         cin   = 1'b0;
-
 
         if (is_lit) begin
 
@@ -104,13 +109,15 @@ module mini8 (
                 OR :  nxt_tos = tos | nos;
                 XOR:  nxt_tos = tos ^ nos;
                 DROP: nxt_tos = nos;
-                default: begin end // Arithmetic operations pass through untouched
+                default: begin end 
             endcase
 
         end else if (grp == GRP_STACK) begin
 	   
             case (sub_op)
-                SWAP: begin nxt_tos = nos; nxt_nos = tos; end
+                // EDITED LINES: Pure single-line parameter targets. No duplicate routing pins.
+                DUP:  begin nxt_tos = tos; end
+                SWAP: begin nxt_tos = nos; b_mux = tos; nxt_nos = b_mux; end
             endcase
 
         end
