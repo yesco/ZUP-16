@@ -97,7 +97,6 @@ module mini8 (
                 ADC: begin b_mux = nos;  cin = c_reg;   end
                 SUB: begin b_mux = ~nos; cin = 1'b1;    end
                 SBC: begin b_mux = ~nos; cin = ~c_reg;   end
-                default: begin b_mux = nos; cin = 1'b0; end
             endcase
 
             // THE ONLY ARITHMETIC LINE: Executed sequentially right after Pass 1
@@ -109,14 +108,13 @@ module mini8 (
                 OR :  nxt_tos = tos | nos;
                 XOR:  nxt_tos = tos ^ nos;
                 DROP: nxt_tos = nos;
-                default: begin end 
             endcase
 
         end else if (grp == GRP_STACK) begin
 	   
             case (sub_op)
                 // EDITED LINES: Pure single-line parameter targets. No duplicate routing pins.
-                DUP:  begin nxt_tos = tos; end
+                //DUP:  begin nxt_tos = tos; end // not needed
                 SWAP: begin nxt_tos = nos; b_mux = tos; nxt_nos = b_mux; end
             endcase
 
