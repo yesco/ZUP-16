@@ -1,4 +1,4 @@
-module cpu_top(
+module mini (
     input  wire       clk,        // Onboard 27MHz clock
     input  wire       rst_n,      // Active-low user reset button
     output reg  [4:0] pins_out,   // Lower 5 bits to header pins

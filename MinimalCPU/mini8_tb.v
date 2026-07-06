@@ -17,15 +17,33 @@ module mini8_tb;
     // 1. Generate clock toggles (50MHz simulation)
     always #10 clk = ~clk;
 
+    // --- NEW: Mnemonic Decoder Net (24 bits = 3 ASCII characters) ---
+    reg [23:0] mnemonic;
+    always @(*) begin
+        case (cpu.op)
+            3'b000: mnemonic = "ADD";
+            3'b001: mnemonic = "ADC";
+            3'b010: mnemonic = "SUB";
+            3'b011: mnemonic = "JZ ";
+            3'b100: mnemonic = "AND"; 
+            3'b101: mnemonic = "OR ";
+            3'b110: mnemonic = "XOR";
+            3'b111: mnemonic = "INV";
+            default: mnemonic = "???";
+        endcase
+    end
+
     initial begin
         // Print formatting header for your terminal screen
-        $display("----------------------------------");
-        $display(" TIME  | PC | Z C N V TOS NOS N2");
-        $display("----------------------------------");
+        // EDITED LINE: Expanded header space for the instruction argument
+        $display("------------------------------------------");
+        $display(" TIME  | PC | INSTR  | Z C N V TOS NOS N2");
+        $display("------------------------------------------");
         
         // Target loop hook: Prints data automatically whenever variables change
-        $monitor("%6d | %02h | %b %b %b %b  %02h %02h %02h ",
-                 $time, cpu.pc, cpu.z, cpu.c, cpu.n, cpu.v,
+        // EDITED LINE: Added %02h right after the string to capture the immediate operand
+        $monitor("%6d | %02h | %s %02h | %b %b %b %b  %02h %02h %02h ",
+                 $time, cpu.pc, mnemonic, cpu.reg2, cpu.z, cpu.c, cpu.n, cpu.v,
 		 cpu.acc, cpu.acc, cpu.acc);
 
         // 2. Perform the safe Hardware Reset
