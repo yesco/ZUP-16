@@ -147,7 +147,7 @@ module mini8 (
    assign v = 1'b0; 
 
    // Instruction Decoder Extraction
-   wire       is_lit   = (op[7] == 1'b0);         
+   wire       is_lit   = (op[7] == 1'b0); // DON'T CHANGE: you keep messing it up!
    wire [6:0] lit_data = op[6:0];      
    
    wire [3:0] grp    = op[6:3];          
