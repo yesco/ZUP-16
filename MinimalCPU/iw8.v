@@ -24,9 +24,9 @@ module iw8 (
    
    // Testing on N for jump because T is destination!
 //   assign z= (t == 0); // LUT: 183
-//   assign z= (n == 0); // LUT: 193
-//   assign do_jmp= (n == 0) && (op == 8'b11001_100); // LUT: 339
-//   assign n_sign= t[7]; // Preserved intent for bit 7 sign monitor
+   assign z= (n == 0); // LUT: 193
+//   assign do_jmp= (n == 0) && (op == 8'b110??_100); // LUT: 339
+//   assign n_sign= t; // Preserved intent for bit 7 sign monitor
 
    // ============
    // Instructions
@@ -38,9 +38,8 @@ module iw8 (
 
       // PC is special
 //      PC= do_jmp? t : pc+1; // LUT: 336 !!! (?)
-      PC= pc+1;
-//	8'b110?1_100: if (n==0) PC= t; // %BRANCH
-//      PC= (n==0 && op==8'b11001_100) ? t : pc+1; // LUT: 274
+
+      PC = pc+1;
 
       // Stack movement
       casez (op[6:5])
@@ -50,39 +49,40 @@ module iw8 (
 	2'b11: ;               // Future
       endcase
        
-      // BITS: { instr, drop, push, ?, branch, ... }
-      casez (op)
+      // BITS: { instr, drop, push, ?, ? ... }
+      casez ({op[7:4], !n, op[3:0]})
 	// -- LITERAL "8 bits" (hi=0, do INV!)
 	8'b0???????: T= op;
 
 	// -- DROPPERS: (a b -> c)
-	8'b110?0_000: T= t + n;     // + 
-	8'b110?0_001: T= t & n;     // AND
-	8'b110?0_010: T= t | n;     // OR
-	8'b110?0_011: T= t ^ n;     // XOR
-//	8'b110?0_100: ram[t]= n;    // !    (value remain)
-	8'b110?0_101: R= t;         // !R
-	8'b110?1_100: if (n==0) PC= t; // %BRANCH
-//	8'b110?1_100: ;             // ZBRANCH (handle outside)
-//	8'b110?0_111: ;             // DROP
+	8'b110??_000: T= t + n;     // + 
+	8'b110??_001: T= t & n;     // AND
+	8'b110??_010: T= t | n;     // OR
+	8'b110??_011: T= t ^ n;     // XOR
+//	8'b110??_100: ram[t]= n;    // !    (value remain)
+	8'b110??_101: R= t;         // !R
+	8'b110?1_110: PC= t;        // GOTO
+//	8'b110??_100: if (z) PC= t; // %BRANCH
+//	8'b110??_100: ;             // ZBRANCH (handle outside)
+//	8'b110??_111: ;             // DROP
 //                    T= t;         // NIP (no space!)
 
 	// -- REGISTER: (a b -> c d)
-	8'b100?0_000: T= ~t;        // INV
-	8'b100?0_001: T= t<<1;      // SHL
-	8'b100?0_010: T= t>>1;      // SHR
-//	8'b101?0_011: T= ram[t]     // @
-	8'b101?0_111:
+	8'b100??_000: T= ~t;        // INV
+	8'b100??_001: T= t<<1;      // SHL
+	8'b100??_010: T= t>>1;      // SHR
+//	8'b101??_011: T= ram[t]     // @
+	8'b101??_111:
 	  begin T= n; N= t; end     // SWAP
 	
 
 	// -- PRODUCER: (a b -> c d e)
-	8'b101?0_000: ;             // DUP
-	8'b101?0_001: T= r;         // @R
-//	8'b101?0_000: T= n;         // OVER
-//	8'b101?0_000: N2= t;        // TUCK
-	8'b101?0_010: T= pc;        // ???
-	
+	8'b101??_000: ;             // DUP
+	8'b101??_001: T= r;         // @R
+//	8'b101??_000: T= n;         // OVER
+//	8'b101??_000: N2= t;        // TUCK
+	8'b101??_010: T= pc;        // ???
+
 	// -- SPECIAL: 111_xx_xxx
 
       endcase
