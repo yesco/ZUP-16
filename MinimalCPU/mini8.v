@@ -4,9 +4,6 @@
 
 `include "mini8_inc.v"
 
-// COMMENT THIS LINE OUT TO DISABLE/REMOVE THE SPILL STACK COMPLETELY
-//`define ENABLE_SPILL_STACK
-
 module mini8 (
               input  wire       clk, 
               input  wire       rst_n,
@@ -184,6 +181,7 @@ module mini8 (
          c_reg <= nxt_c; 
          tos   <= nxt_tos;   
          nos   <= nxt_nos;
+
          `ifdef ENABLE_SPILL_STACK
          sp    <= nxt_sp;
 
