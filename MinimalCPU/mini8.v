@@ -25,6 +25,11 @@ module mini8 (
    reg [7:0]  nos;
    reg [7:0]  n2;
 
+   // 32-element Overflow Stack RAM and Pointer
+   reg [7:0]  stack_mem [0:31];
+   reg [4:0]  sp;
+   reg [4:0]  nxt_sp;
+
    assign acc  = tos;
    assign c_in = c_reg;
 
@@ -65,6 +70,7 @@ module mini8 (
       nxt_n2    = n2;
       nxt_c     = c_reg; 
       nxt_pc    = pc + 1;
+      nxt_sp    = sp;
 
       // Shared Operand Route Baseline Defaults
       b_mux = tos;
@@ -74,11 +80,12 @@ module mini8 (
 
       if (is_lit) begin
 
-         // PUSH logic embedded directly
+         // PUSH logic embedded directly + RAM Spill
          nxt_c   = 0;
          nxt_tos = {1'b0, lit_data};
          nxt_nos = tos;
          nxt_n2  = nos;
+         nxt_sp  = sp + 1;
 
       end else if (grp == `ALU || grp == `REG) begin
 
@@ -106,9 +113,10 @@ module mini8 (
          // PASS 2: Logical operations cleanly overwrite nxt_tos if active
          if (grp[1]) begin // (this cheaply detects ALU)
 
-            // DROP logic embedded directly
+            // DROP logic embedded directly + RAM Fill
             nxt_nos = n2;
-            nxt_n2  = 0;
+            nxt_n2  = stack_mem[sp - 1];
+            nxt_sp  = sp - 1;
             case (sub_op)
               `AND:  nxt_tos = tos & nos;
               `OR :  nxt_tos = tos | nos;
@@ -134,9 +142,9 @@ module mini8 (
       end else if (grp == `STACK) begin
          
          case (sub_op)
-           `OVER: begin nxt_tos = nos; nxt_nos = tos; nxt_n2  = nos; end
-           `SWAP: begin nxt_tos = nos; nxt_nos = tos;                end
-           `DUP:  begin                nxt_nos = tos; nxt_n2  = nos; end
+           `OVER: begin nxt_tos = nos; nxt_nos = tos; nxt_n2  = nos; nxt_sp = sp + 1; end // Pushes onto stack
+           `SWAP: begin nxt_tos = nos; nxt_nos = tos;                                 end // No depth change
+           `DUP:  begin                nxt_nos = tos; nxt_n2  = nos; nxt_sp = sp + 1; end // Pushes onto stack
          endcase
 
       end else if (grp == `BRANCH) begin
@@ -156,12 +164,23 @@ module mini8 (
          tos   <= 0;
          nos   <= 0;
          n2    <= 0;
+         sp    <= 0;
       end else begin
          pc    <= nxt_pc;    
          c_reg <= nxt_c; 
          tos   <= nxt_tos;   
          nos   <= nxt_nos;
          n2    <= nxt_n2;
+         sp    <= nxt_sp;
+
+         // Sync Write to LUT RAM on Stack Growth
+         if (is_lit) begin
+            stack_mem[sp] <= nos;
+         end else if (grp == `STACK) begin
+            if (sub_op == `OVER || sub_op == `DUP) begin
+               stack_mem[sp] <= n2;
+            end
+         end
       end
    end
 endmodule

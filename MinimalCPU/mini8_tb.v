@@ -101,6 +101,28 @@ module mini8_tb;
       `PROM(`iSHR);
       `PROM(`iSHR);
       
+      `PROM(63);
+      `PROM(63);
+      `PROM(63);
+
+      `PROM(1);
+      `PROM(2);
+      `PROM(3);
+      `PROM(4);
+      `PROM(5);
+      `PROM(6);
+      `PROM(7);
+      `PROM(8);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      `PROM(`iDROP);
+      
+      
       $display("------------------------------------------");
       $display(" TIME  | PC | OP | Z C N V N2 NOS TOS");
       $display("------------------------------------------");
@@ -114,7 +136,7 @@ module mini8_tb;
       #25;
       rst_n = 1; 
 
-      #800; 
+      #1200; 
       $display("--------------------------------------------");
       $finish; 
    end
