@@ -49,7 +49,7 @@ module iw8 (
 	2'b11: ;               // Future
       endcase
        
-      // BITS: { !n (1 bit), op[7:0] (8 bits) } = 9 bits total
+      // BITS: { instr, drop, push, ?, ? ... }
       casez ({op})
 	// -- LITERAL "8 bits" (hi=0, do INV!)
 	8'b0????_???: T= op;
