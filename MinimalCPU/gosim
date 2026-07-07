@@ -1,0 +1,18 @@
+rm -f $1.sim
+
+YOSYS_CMD="synth_gowin -json build/$1-LUTRAM.json"
+
+yosys -p "$YOSYS_CMD" $1-LUTRAM.v || exit
+
+iverilog -o $1.sim $1-LUTRAM.v $1_tb.v /data/data/com.termux/files/usr/share/yosys/gowin/cells_sim.v || exit
+
+vvp $1.sim | tee $1.out || exit
+
+git diff -U9999 $1.out
+
+echo "--- DONE ---"
+
+
+
+
+
