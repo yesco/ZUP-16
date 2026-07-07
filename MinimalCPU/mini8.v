@@ -104,7 +104,7 @@ module mini8 (
          {nxt_c, nxt_tos} = a_mux + b_mux + cin;
 
          // PASS 2: Logical operations cleanly overwrite nxt_tos if active
-         if (grp[1]) begin
+         if (grp[1]) begin // (this cheaply detects ALU)
 
             // DROP logic embedded directly
             nxt_nos = n2;
