@@ -3,6 +3,7 @@
 // SYSTEM RULES:
 // 1. change minimal amount of code for feature only.
 // 2. assignement are "T= expr;"
+// 3. don't make temporary "fixed" comments
 
 module iw8 (
               input  wire       clk,
@@ -24,6 +25,7 @@ module iw8 (
    // Testing on N for jump because T is destination!
 //   assign z= (t == 0); // LUT: 183
    assign z= (n == 0); // LUT: 193
+//   assign do_jmp= (n == 0) && (op == 8'b110??_100); // LUT: 339
 //   assign n_sign= t[7]; // Preserved intent for bit 7 sign monitor
 
    // ============
@@ -32,7 +34,11 @@ module iw8 (
    always @(*) begin
 
       // Defaults
-      PC= pc+1; T= t; N= n; R= r;
+      T= t; N= n; R= r;
+
+      // PC is special
+//      PC= do_jmp? t : pc+1; // LUT: 336 !!! (?)
+      PC= pc+1;
 
       // Stack movement
       casez (op[6:5])
@@ -54,9 +60,10 @@ module iw8 (
 	8'b110??_011: T= t ^ n;     // XOR
 //	8'b110??_100: ram[t]= n;    // !    (value remain)
 	8'b110??_101: R= t;         // !R
-	8'b110??_110: PC= t;        // GOTO
-//	8'b110??_110: if (z) PC= t; // %BRANCH +35 LUT???
-	8'b110??_111: ;             // DROP
+//	8'b110??_110: PC= t;        // GOTO
+	8'b110??_100: if (z) PC= t; // %BRANCH
+//	8'b110??_100: ;             // ZBRANCH (handle outside)
+//	8'b110??_111: ;             // DROP
 //                    T= t;         // NIP (no space!)
 
 	// -- REGISTER: (a b -> c d)
