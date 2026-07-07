@@ -2,30 +2,8 @@
 //
 // SYSTEM RULE: chanage minimal amount of code for feature only.
 
-// (a b -> c)
-`define iADD  {"ADD ", {1'b1, `ALU,   `ADD}}
-`define iAND  {"AND ", {1'b1, `ALU,   `AND}}
-`define iOR   {"OR  ", {1'b1, `ALU,   `OR}}
-`define iXOR  {"XOR ", {1'b1, `ALU,   `XOR}}
-`define iDROP {"DROP", {1'b1, `ALU,   `DROP}}
-`define iSTOR {"STOR", {1'b1, `ALU,   `STOR}}
 
-// MAPPER: (a b -> c d)
-`define iSWAP {"SWAP", {1'b1, `STACK, `SWAP}}
-
-// PRODUCER: (a b -> c d e)
-`define iDUP  {"DUP ", {1'b1, `STACK, `DUP}}
-`define iOVER {"OVER", {1'b1, `STACK, `OVER}}
-`define iTUCK {"TUCK", {1'b1, `STACK, `TUCK}}
-
-// REGISTER (a -> b)
-`define iSHR  {"SHR ", {1'b1, `REG,   `SHR}}
-`define iSHL  {"SHL ", {1'b1, `REG,   `SHL}}
-
-`define iJZ   {"JZ  ", {1'b1, `BRANCH,  3'b000}}
-`define iJNZ  {"JNZ ", {1'b1, `BRANCH2, 3'b000}}
-
-module mini8 (
+module iw8 (
               input  wire       clk,
               input  wire       rst_n,
               output reg  [7:0] PC,
@@ -33,7 +11,6 @@ module mini8 (
 
               // External flag monitors
               output wire       z,
-              output wire       n, 
               );
 
    // ==========================================================
