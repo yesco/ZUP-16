@@ -57,21 +57,25 @@ module mini8_tb;
       
 
       // --- Single-Line Fused Mnemonic Decoder Mapping Table ---
-      `MAP(`iADD);   `MAP(`iADC);   `MAP(`iSUB);   `MAP(`iSBC);
-      `MAP(`iAND);   `MAP(`iOR);    `MAP(`iXOR);   `MAP(`iDROP);
-
-      `MAP(`iSWAP);  `MAP(`iOVER);  `MAP(`iTUCK);  `MAP(`iDUP);
-      `MAP(`iROT);   `MAP(`iNOP);   `MAP(`iMUL);   `MAP(`ist0);
-
-      `MAP(`iINC);   `MAP(`iDEC);   `MAP(`iROR);   `MAP(`iASR);
-      `MAP(`iSHR);   `MAP(`iSHR4);  `MAP(`iSHL);   `MAP(`iSHL4);
-
       `MAP(`iSIGN);  `MAP(`ibit14); `MAP(`ibit13); `MAP(`ibit12);
       `MAP(`ibit11); `MAP(`ibit10); `MAP(`ibit09); `MAP(`ibit08);
       `MAP(`ibit07); `MAP(`ibit06); `MAP(`ibit05); `MAP(`ibit04);
       `MAP(`ibit03); `MAP(`ibit02); `MAP(`ibit01); `MAP(`ibit00);
 
       `MAP(`iJZ);   `MAP(`iJNZ);
+
+      // - 32 OPS BLCOK
+
+      `MAP(`iINC);   `MAP(`iDEC);   `MAP(`iROR);   `MAP(`iASR);
+      `MAP(`iSHR);   `MAP(`iSHR4);  `MAP(`iSHL);   `MAP(`iSHL4);
+
+      `MAP(`iADD);   `MAP(`iADC);   `MAP(`iSUB);   `MAP(`iSBC);
+      `MAP(`iAND);   `MAP(`iOR);    `MAP(`iXOR);   `MAP(`iDROP);
+
+      `MAP(`iSWAP);  `MAP(`iOVER);  `MAP(`iTUCK);  `MAP(`iDUP);
+      `MAP(`iROT);   `MAP(`iNOP);   `MAP(`iMUL);   `MAP(`ist0);
+
+      // TODO: RSTACK
 
       // Initialize the pointer base address
       wraddr = 0;
