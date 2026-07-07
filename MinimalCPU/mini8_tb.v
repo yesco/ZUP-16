@@ -29,6 +29,18 @@ module mini8_tb;
 
    reg [23:0] arg;
 
+//   assign S3 = (cpu.sp >= 5'd1) ? cpu.stack_mem[cpu.sp - 5'd1] : 8'hEE; // Top of RAM stack
+//   assign S4 = (cpu.sp >= 5'd2) ? cpu.stack_mem[cpu.sp - 5'd2] : 8'hEE; // Deep item 1
+//   assign S5 = (cpu.sp >= 5'd3) ? cpu.stack_mem[cpu.sp - 5'd3] : 8'hEE; // Deep item 2
+
+   wire [7:0] S3;
+   wire [7:0] S4;
+   wire [7:0] S5;
+
+   assign S3 = cpu.stack_mem[cpu.sp - 5'd1];
+   assign S4 = cpu.stack_mem[cpu.sp - 5'd2];
+   assign S5 = cpu.stack_mem[cpu.sp - 5'd3];
+   
    // Track the write index location sequentially
    integer wraddr;
 
@@ -123,13 +135,13 @@ module mini8_tb;
       `PROM(`iDROP);
       
       
-      $display("------------------------------------------");
-      $display(" TIME  | PC | OP | Z C N V N2 NOS TOS");
-      $display("------------------------------------------");
+      $display("--------------------------------------------------");
+      $display(" TIME  | PC | OP | Z C N V | -5 -4 -3 | N2 NOS TOS");
+      $display("---------------------------------------------------");
       
-      $monitor("%6d | %02h |%s| %b %b %b %b  %02h %02h %02h",
+      $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h | %02h %02h %02h",
                $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.n, cpu.v,
-               cpu.n2, cpu.nos, cpu.tos);
+	       S5, S4, S3, cpu.n2, cpu.nos, cpu.tos);
 
       clk = 0;
       rst_n = 0;

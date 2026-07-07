@@ -113,10 +113,11 @@ module mini8 (
          // PASS 2: Logical operations cleanly overwrite nxt_tos if active
          if (grp[1]) begin // (this cheaply detects ALU)
 
-            // DROP logic embedded directly + RAM Fill
+            // DROP logic embedded directly
             nxt_nos = n2;
-            nxt_n2  = stack_mem[sp - 1];
             nxt_sp  = sp - 1;
+
+            // nxt_n2 is bypassed here; handled cleanly at the clock edge below
             case (sub_op)
               `AND:  nxt_tos = tos & nos;
               `OR :  nxt_tos = tos | nos;
@@ -161,25 +162,41 @@ module mini8 (
       if (!rst_n) begin
          pc    <= 0;
          c_reg <= 0;
-         tos   <= 0;
-         nos   <= 0;
-         n2    <= 0;
+         tos   <= 8'hc;
+         nos   <= 8'hb;
+         n2    <= 8'ha;
          sp    <= 0;
       end else begin
          pc    <= nxt_pc;    
          c_reg <= nxt_c; 
          tos   <= nxt_tos;   
          nos   <= nxt_nos;
-         n2    <= nxt_n2;
          sp    <= nxt_sp;
+
+         // Synchronous Read: Only access RAM when a true DROP group is active
+         if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
+
+            n2 <= stack_mem[nxt_sp]; // Safe, back-to-back streaming pop read
+
+         end else begin
+
+            n2 <= nxt_n2;            // Keep normal combinatorial calculation
+
+         end
 
          // Sync Write to LUT RAM on Stack Growth
          if (is_lit) begin
-            stack_mem[sp] <= nos;
+
+	    // PUSH
+            stack_mem[sp] <= n2;
+
          end else if (grp == `STACK) begin
+
+	    // SPILL
             if (sub_op == `OVER || sub_op == `DUP) begin
-               stack_mem[sp] <= n2;
+               stack_mem[sp] <= tos;
             end
+
          end
       end
    end
