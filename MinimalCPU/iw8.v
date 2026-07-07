@@ -39,6 +39,8 @@ module iw8 (
       // PC is special
 //      PC= do_jmp? t : pc+1; // LUT: 336 !!! (?)
       PC= pc+1;
+//	8'b110?1_100: if (n==0) PC= t; // %BRANCH
+//      PC= (n==0 && op==8'b11001_100) ? t : pc+1; // LUT: 274
 
       // Stack movement
       casez (op[6:5])
@@ -60,7 +62,6 @@ module iw8 (
 	8'b110?0_011: T= t ^ n;     // XOR
 //	8'b110?0_100: ram[t]= n;    // !    (value remain)
 	8'b110?0_101: R= t;         // !R
-//	8'b110?0_110: PC= t;        // GOTO
 	8'b110?1_100: if (n==0) PC= t; // %BRANCH
 //	8'b110?1_100: ;             // ZBRANCH (handle outside)
 //	8'b110?0_111: ;             // DROP
