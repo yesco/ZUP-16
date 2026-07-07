@@ -4,6 +4,9 @@
 
 `include "mini8_inc.v"
 
+// COMMENT THIS LINE OUT TO DISABLE/REMOVE THE SPILL STACK COMPLETELY
+//`define ENABLE_SPILL_STACK
+
 module mini8 (
               input  wire       clk, 
               input  wire       rst_n,
@@ -25,10 +28,12 @@ module mini8 (
    reg [7:0]  nos;
    reg [7:0]  n2;
 
+   `ifdef ENABLE_SPILL_STACK
    // 32-element Overflow Stack RAM and Pointer
    reg [7:0]  stack_mem [0:31];
    reg [4:0]  sp;
    reg [4:0]  nxt_sp;
+   `endif
 
    assign acc  = tos;
    assign c_in = c_reg;
@@ -70,7 +75,9 @@ module mini8 (
       nxt_n2    = n2;
       nxt_c     = c_reg; 
       nxt_pc    = pc + 1;
+      `ifdef ENABLE_SPILL_STACK
       nxt_sp    = sp;
+      `endif
 
       // Shared Operand Route Baseline Defaults
       b_mux = tos;
@@ -85,7 +92,9 @@ module mini8 (
          nxt_tos = {1'b0, lit_data};
          nxt_nos = tos;
          nxt_n2  = nos;
+         `ifdef ENABLE_SPILL_STACK
          nxt_sp  = sp + 1;
+         `endif
 
       end else if (grp == `ALU || grp == `REG) begin
 
@@ -115,7 +124,9 @@ module mini8 (
 
             // DROP logic embedded directly
             nxt_nos = n2;
+            `ifdef ENABLE_SPILL_STACK
             nxt_sp  = sp - 1;
+            `endif
 
             // nxt_n2 is bypassed here; handled cleanly at the clock edge below
             case (sub_op)
@@ -143,9 +154,9 @@ module mini8 (
       end else if (grp == `STACK) begin
          
          case (sub_op)
-           `OVER: begin nxt_tos = nos; nxt_nos = tos; nxt_n2  = nos; nxt_sp = sp + 1; end // Pushes onto stack
+           `OVER: begin nxt_tos = nos; nxt_nos = tos; nxt_n2  = nos; `ifdef ENABLE_SPILL_STACK nxt_sp = sp + 1; `endif end // Pushes onto stack
            `SWAP: begin nxt_tos = nos; nxt_nos = tos;                                 end // No depth change
-           `DUP:  begin                nxt_nos = tos; nxt_n2  = nos; nxt_sp = sp + 1; end // Pushes onto stack
+           `DUP:  begin                nxt_nos = tos; nxt_n2  = nos; `ifdef ENABLE_SPILL_STACK nxt_sp = sp + 1; `endif end // Pushes onto stack
          endcase
 
       end else if (grp == `BRANCH) begin
@@ -165,39 +176,37 @@ module mini8 (
          tos   <= 8'hc;
          nos   <= 8'hb;
          n2    <= 8'ha;
+         `ifdef ENABLE_SPILL_STACK
          sp    <= 0;
+         `endif
       end else begin
          pc    <= nxt_pc;    
          c_reg <= nxt_c; 
          tos   <= nxt_tos;   
          nos   <= nxt_nos;
+         `ifdef ENABLE_SPILL_STACK
          sp    <= nxt_sp;
 
          // Synchronous Read: Only access RAM when a true DROP group is active
          if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
-
             n2 <= stack_mem[nxt_sp]; // Safe, back-to-back streaming pop read
-
          end else begin
-
             n2 <= nxt_n2;            // Keep normal combinatorial calculation
-
          end
 
          // Sync Write to LUT RAM on Stack Growth
          if (is_lit) begin
-
 	    // PUSH
             stack_mem[sp] <= n2;
-
          end else if (grp == `STACK) begin
-
 	    // SPILL
             if (sub_op == `OVER || sub_op == `DUP) begin
                stack_mem[sp] <= tos;
             end
-
          end
+         `else
+         n2    <= nxt_n2;
+         `endif
       end
    end
 endmodule
