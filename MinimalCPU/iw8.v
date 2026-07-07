@@ -1,7 +1,8 @@
 // iw8.v: A minimal (VL)IW 8-bit stack machine
 //
-// SYSTEM RULE: chanage minimal amount of code for feature only.
-
+// SYSTEM RULES:
+// 1. change minimal amount of code for feature only.
+// 2. assignement are "T= expr;"
 
 module iw8 (
               input  wire       clk,
@@ -10,17 +11,19 @@ module iw8 (
               input  wire [7:0] op,
 
               // External flag monitors
-              output wire       z,
+              output wire       z
               );
 
    // ==========================================================
    // 1. Storage & Wire Aliases (The Background Map)
    // ==========================================================
-   reg [7:0]  pc, t, n, r,  PC, T, N, R;
+   // New state use capitals
+   reg [7:0]  pc, t, n, r, T, N, R;
+   wire       n_sign;
    
    // TODO: maybe test on n if address in t!
    assign z= (t == 0);
-   assign n= t[7];
+   assign n_sign= t[7]; // Preserved intent for bit 7 sign monitor
 
    // ============
    // Instructions
@@ -38,11 +41,10 @@ module iw8 (
 	2'b11: ;               // Future
       endcase
        
-      // BITS: { instr, drop, ?, ?, ? 
+      // BITS: { instr, drop, push, ?, ? ... }
       casez (op)
-	// LITERAL
-	8'b0???_????: T= op;
-
+	// LITERAL "8 bits" (hi=0, do INV!)
+	8'b0???????: T= op;
 
 	// DROPPERS: (a b -> c)
 	8'b11000_000: T= t + n;  // + 
@@ -69,7 +71,7 @@ module iw8 (
 	8'b10100_001: T= r;      // @R
 //	8'b10100_000: T= n;      // OVER
 //	8'b10100_000: N2= t;     // TUCK
-	8'b10100_001: T= pc;     // ???
+	8'b10100_010: T= pc;
 
 	// SPECIALS: 111_xx_xxx
 
@@ -80,9 +82,9 @@ module iw8 (
    // Update CPU to new state
    always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
-         pc <= 0;  t <= 0; n <= 0; r <= 0;
+         pc<= 0;  t<= 0; n<= 0; r<= 0;
       end else begin
-         pc <= PC; t <= T; n <= N; r <= R;
+         pc<= PC; t<= T; n<= N; r<= R;
       end
    end
 
