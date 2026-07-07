@@ -169,8 +169,8 @@ module mini8 (
 
          pc    <= 0;
          c_reg <= 0;
-         t   <= 8'hc;
-         n   <= 8'hb;
+         t     <= 8'hc;
+         n     <= 8'hb;
          n2    <= 8'ha;
 
          `ifdef DSTACK
@@ -181,49 +181,43 @@ module mini8 (
 
          pc    <= PC;    
          c_reg <= C; 
-         t   <= T;   
-         n   <= N;
+         t     <= T;   
+         n     <= N;
 
-	 // -- ALL STACK UPDATES 
-	 // TODO: maybe too complicated - simplify?
+         // -- ALL STACK UPDATES 
          `ifdef DSTACK
+	 begin
 
-         sp    <= SP;
+            sp    <= SP;
 
-         // - Synchronous Read: Only access RAM when a true DROP group is active
-         if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
-	    
-	    // POP
-            n2 <= stack[SP];
+            // SPILL
+            if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
+            
+               // POP
+               n2 <= stack[SP];
 
-         end else begin
+            end else begin
 
-            // Keep normal combinatorial calculation
-	    n2 <= N2;
-
-         end
-
-
-         // - SPILLING values to LUT RAM on Stack Growth
-         if (is_lit) begin
-
-	    // PUSH
-            stack[sp] <= n2; //  TODO: correct?
-
-         end else if (grp == `STACK) begin
-
-	    // OVER DUP "implementation" wwhy here? Why not use N2
-            if (sub_op == `OVER || sub_op == `DUP) begin
-               stack[sp] <= t; // TODO: correct?
+               n2 <= N2;
+	       
             end
 
-         end
+            // - CLEANED SPILLING: Whenever the stack pointer grows, 
+            // save the value pushed out from the bottom of the hardware registers.
+            if (SP > sp) begin
+	       
+               stack[sp] <= n2; 
 
+            end
+
+	 end
          `else
+	 begin 
 
-	 // Just simply update if no deep SPILL stack
-         n2    <= N2;
+            // Just simply update if no deep SPILL stack
+            n2    <= N2;
 
+	 end
          `endif
 
       end
