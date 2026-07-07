@@ -21,9 +21,10 @@ module iw8 (
    reg [7:0]  pc, t, n, r, T, N, R;
    wire       n_sign;
    
-   // TODO: maybe test on n if address in t!
-   assign z= (t == 0);
-   assign n_sign= t[7]; // Preserved intent for bit 7 sign monitor
+   // Testing on N for jump because T is destination!
+//   assign z= (t == 0); // LUT: 183
+   assign z= (n == 0); // LUT: 193
+//   assign n_sign= t[7]; // Preserved intent for bit 7 sign monitor
 
    // ============
    // Instructions
@@ -43,37 +44,38 @@ module iw8 (
        
       // BITS: { instr, drop, push, ?, ? ... }
       casez (op)
-	// LITERAL "8 bits" (hi=0, do INV!)
+	// -- LITERAL "8 bits" (hi=0, do INV!)
 	8'b0???????: T= op;
 
-	// DROPPERS: (a b -> c)
-	8'b11000_000: T= t + n;  // + 
-	8'b11000_001: T= t & n;  // AND
-	8'b11000_010: T= t | n;  // OR
-	8'b11000_011: T= t ^ n;  // XOR
-//	8'b11000_100: ram[t]= n; // !    (value remain)
-	8'b11000_101: R= t;      // !R
-	8'b11000_110: PC= t;     // GOTO
-	8'b11000_111: ;          // DROP
-//                    T= t;      // NIP (no space!)
+	// -- DROPPERS: (a b -> c)
+	8'b110??_000: T= t + n;     // + 
+	8'b110??_001: T= t & n;     // AND
+	8'b110??_010: T= t | n;     // OR
+	8'b110??_011: T= t ^ n;     // XOR
+//	8'b110??_100: ram[t]= n;    // !    (value remain)
+	8'b110??_101: R= t;         // !R
+	8'b110??_110: PC= t;        // GOTO
+//	8'b110??_110: if (z) PC= t; // %BRANCH +35 LUT???
+	8'b110??_111: ;             // DROP
+//                    T= t;         // NIP (no space!)
 
-	// REGISTER: (a b -> c d)
-	8'b10000_000: T= ~t;     // INV
-	8'b10000_001: T= t<<1;   // SHL
-	8'b10000_010: T= t>>1;   // SHR
-//	8'b10100_011: T= ram[t]  // @
-	8'b10100_111:
-	  begin T= n; N= t; end  // SWAP
+	// -- REGISTER: (a b -> c d)
+	8'b100??_000: T= ~t;        // INV
+	8'b100??_001: T= t<<1;      // SHL
+	8'b100??_010: T= t>>1;      // SHR
+//	8'b101??_011: T= ram[t]     // @
+	8'b101??_111:
+	  begin T= n; N= t; end     // SWAP
 	
 
-	// PRODUCER: (a b -> c d e)
-	8'b10100_000: ;          // DUP
-	8'b10100_001: T= r;      // @R
-//	8'b10100_000: T= n;      // OVER
-//	8'b10100_000: N2= t;     // TUCK
-	8'b10100_010: T= pc;
+	// -- PRODUCER: (a b -> c d e)
+	8'b101??_000: ;             // DUP
+	8'b101??_001: T= r;         // @R
+//	8'b101??_000: T= n;         // OVER
+//	8'b101??_000: N2= t;        // TUCK
+	8'b101??_010: T= pc;        // ???
 
-	// SPECIALS: 111_xx_xxx
+	// -- SPECIAL: 111_xx_xxx
 
       endcase
 
