@@ -1,0 +1,22 @@
+      214 iw8
+      182 wires
+      401 wire bits
+      182 public wires
+      401 public wire bits
+        5 ports
+       19 port bits
+      214 cells
+        1   GND
+       10   IBUF
+       31   LUT1
+       23   LUT2
+       20   LUT3
+       69   LUT4
+       44   MUX2_LUT5
+        6   MUX2_LUT6
+        9   OBUF
+        1   VCC
+       48 submodules
+       16   ALU
+        8   DFFC
+       24   DFFCE
