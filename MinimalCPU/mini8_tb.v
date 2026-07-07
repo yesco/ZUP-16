@@ -13,10 +13,10 @@ module mini8_tb;
    reg clk;
    reg rst_n;
    
-   reg [7:0] rom[0:255]; 
+   reg  [7:0] rom[0:255]; 
    wire [7:0] op = rom[cpu.pc];
 
-   reg [31:0] name[0:255];
+   reg  [31:0] name[0:255];
    wire [31:0] mnemonic = name[cpu.op];
 
    mini8 cpu (
@@ -29,15 +29,15 @@ module mini8_tb;
 
    reg [23:0] arg;
 
-   `ifdef ENABLE_SPILL_STACK
+`ifdef DSTACK
    wire [7:0] S3;
    wire [7:0] S4;
    wire [7:0] S5;
 
-   assign S3 = cpu.stack_mem[cpu.sp - 5'd1];
-   assign S4 = cpu.stack_mem[cpu.sp - 5'd2];
-   assign S5 = cpu.stack_mem[cpu.sp - 5'd3];
-   `endif
+   assign S3 = cpu.stack[cpu.sp - 5'd1];
+   assign S4 = cpu.stack[cpu.sp - 5'd2];
+   assign S5 = cpu.stack[cpu.sp - 5'd3];
+`endif
    
    // Track the write index location sequentially
    integer wraddr;
@@ -57,16 +57,16 @@ module mini8_tb;
       
 
       // --- Single-Line Fused Mnemonic Decoder Mapping Table ---
-      `MAP(`iADD);  `MAP(`iADC);  `MAP(`iSUB);  `MAP(`iSBC);
-      `MAP(`iAND);  `MAP(`iOR);   `MAP(`iXOR);  `MAP(`iDROP);
+      `MAP(`iADD);   `MAP(`iADC);   `MAP(`iSUB);   `MAP(`iSBC);
+      `MAP(`iAND);   `MAP(`iOR);    `MAP(`iXOR);   `MAP(`iDROP);
 
-      `MAP(`iSWAP); `MAP(`iOVER); `MAP(`iTUCK); `MAP(`iDUP);
-      `MAP(`iROT);  `MAP(`iNOP);  `MAP(`iMUL);  `MAP(`ist0);
+      `MAP(`iSWAP);  `MAP(`iOVER);  `MAP(`iTUCK);  `MAP(`iDUP);
+      `MAP(`iROT);   `MAP(`iNOP);   `MAP(`iMUL);   `MAP(`ist0);
 
-      `MAP(`iINC);  `MAP(`iDEC);  `MAP(`iROR);  `MAP(`iASR);
-      `MAP(`iSHR);  `MAP(`iSHR4); `MAP(`iSHL);  `MAP(`iSHL4);
+      `MAP(`iINC);   `MAP(`iDEC);   `MAP(`iROR);   `MAP(`iASR);
+      `MAP(`iSHR);   `MAP(`iSHR4);  `MAP(`iSHL);   `MAP(`iSHL4);
 
-      `MAP(`iSIGN); `MAP(`ibit14); `MAP(`ibit13); `MAP(`ibit12);
+      `MAP(`iSIGN);  `MAP(`ibit14); `MAP(`ibit13); `MAP(`ibit12);
       `MAP(`ibit11); `MAP(`ibit10); `MAP(`ibit09); `MAP(`ibit08);
       `MAP(`ibit07); `MAP(`ibit06); `MAP(`ibit05); `MAP(`ibit04);
       `MAP(`ibit03); `MAP(`ibit02); `MAP(`ibit01); `MAP(`ibit00);
@@ -133,23 +133,23 @@ module mini8_tb;
       `PROM(`iDROP);
       
       
-   `ifdef ENABLE_SPILL_STACK
+`ifdef DSTACK
       $display("--------------------------------------------------");
       $display(" TIME  | PC | OP | Z C N V | -5 -4 -3 | N2 NOS TOS");
       $display("---------------------------------------------------");
       
       $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h | %02h %02h %02h",
-               $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.n, cpu.v,
-	       S5, S4, S3, cpu.n2, cpu.nos, cpu.tos);
-   `else
+               $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.neg, cpu.v,
+               S5, S4, S3, cpu.n2, cpu.n, cpu.t);
+`else
       $display("--------------------------------------------------");
       $display(" TIME  | PC | OP | Z C N V | N2 NOS TOS");
       $display("---------------------------------------------------");
       
       $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h",
-               $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.n, cpu.v,
-	       cpu.n2, cpu.nos, cpu.tos);
-   `endif
+               $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.neg, cpu.v,
+               cpu.n2, cpu.n, cpu.t);
+`endif
       
       clk = 0;
       rst_n = 0;

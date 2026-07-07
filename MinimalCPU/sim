@@ -3,6 +3,8 @@ iverilog -o $1.sim $1.v $1_tb.v || exit
 vvp $1.sim | tee $1.out || exit
 
 git diff -U9999 $1.out
+echo "--- DONE ---"
+
 
 
 

@@ -5,61 +5,52 @@
 `include "mini8_inc.v"
 
 module mini8 (
-              input  wire       clk, 
-              input  wire       rst_n,
-              output reg  [7:0] pc,
-              input  wire [7:0] op,
+              input wire       clk, 
+              input wire       rst_n,
+              output reg [7:0] pc,
+              input wire [7:0] op,
 
               // External flag monitors
-              output wire       c, 
-              output wire       z, 
-              output wire       n, 
-              output wire       v  
+              output wire c,
+              output wire z, 
+              output wire neg,
+              output wire v  
               );
 
    // ==========================================================
    // 1. Storage & Wire Aliases (The Background Map)
    // ==========================================================
    reg        c_reg;
-   reg [7:0]  tos;        
-   reg [7:0]  nos;
-   reg [7:0]  n2;
+   reg [7:0]  t, n, n2;
 
-   `ifdef ENABLE_SPILL_STACK
+   `ifdef DSTACK
    // 32-element Overflow Stack RAM and Pointer
-   reg [7:0]  stack_mem [0:31];
-   reg [4:0]  sp;
-   reg [4:0]  nxt_sp;
+   reg [7:0]  stack [0:31];
+   reg [4:0]  sp, SP;
    `endif
 
-   assign acc  = tos;
+   assign acc  = t;
    assign c_in = c_reg;
 
    assign c = c_reg;
-   assign z = (tos == 8'd0); 
-   assign n = tos;
+   assign z = (t == 8'd0); 
+   assign neg = t;
    assign v = 0;
 
    // Instruction Decoder Extraction
    wire       is_lit   = (op[7] == 0); // DON'T CHANGE: you keep messing it up!
    wire [6:0] lit_data = op[6:0];      
    
-   wire [3:0] grp    = op[6:3];          
-   wire [2:0] sub_op = op[2:0];        
-
-   // Interconnect Nets
-   reg [7:0]  nxt_tos;
-   reg        nxt_c;    
-   reg [7:0]  nxt_pc;      
+   wire [3:0] grp    = op[6:3];
+   wire [2:0] sub_op = op[2:0];
 
    // Factored Next-State Stack Nets
-   reg [7:0]  nxt_nos;
-   reg [7:0]  nxt_n2;
+   reg        C;    
+   reg [7:0]  PC, T, N, N2;
 
    // --- Single-Adder Control Mux Nets ---
-   reg [7:0]  b_mux;
-   reg [7:0]  a_mux;
    reg        cin;
+   reg [7:0]  a_mux, b_mux;
 
    // ==========================================================
    // 3. CONCERN A: Pure ALU Math & Stack Engine
@@ -67,99 +58,105 @@ module mini8 (
    always @(*) begin
 
       // Top-level initializations
-      nxt_tos   = tos;
-      nxt_nos   = nos;
-      nxt_n2    = n2;
-      nxt_c     = c_reg; 
-      nxt_pc    = pc + 1;
-      `ifdef ENABLE_SPILL_STACK
-      nxt_sp    = sp;
+      T  = t;
+      N  = n;
+      N2 = n2;
+      C  = c_reg; 
+      PC = pc + 1;
+
+      `ifdef DSTACK
+      SP    = sp;
       `endif
 
       // Shared Operand Route Baseline Defaults
-      b_mux = tos;
-      a_mux = nos;
-      
       cin   = 0;
 
+      a_mux = n;
+      b_mux = t;
+      
       if (is_lit) begin
 
          // PUSH logic embedded directly + RAM Spill
-         nxt_c   = 0;
-         nxt_tos = {1'b0, lit_data};
-         nxt_nos = tos;
-         nxt_n2  = nos;
-         `ifdef ENABLE_SPILL_STACK
-         nxt_sp  = sp + 1;
+         C = 0;
+         T = {1'b0, lit_data};
+         N = t;
+         N2= n;
+
+         `ifdef DSTACK
+         SP  = sp + 1;
          `endif
 
       end else if (grp == `ALU || grp == `REG) begin
 
          // PASS 1: Set up the routing parameters for arithmetic operations
          case (sub_op)
-           `ADD: begin b_mux = tos;  cin = 0;     end
-           `ADC: begin b_mux = tos;  cin = c_reg; end
-           `SUB: begin b_mux = ~tos; cin = 1;     end
-           `SBC: begin b_mux = ~tos; cin = ~c_reg;end
+           `ADD: begin b_mux = t;  cin = 0;      end
+           `ADC: begin b_mux = t;  cin = c_reg;  end
+           `SUB: begin b_mux = ~t; cin = 1;      end
+           `SBC: begin b_mux = ~t; cin = ~c_reg; end
          endcase 
 
          if (grp == `REG) begin 
 
 	    // TODO: if INC(+DEC) was ALU blocked, would it be chepaer?
             case (sub_op)
-              `INC: begin b_mux = tos; a_mux =  0;  cin = 1; end
-              `DEC: begin b_mux = tos; a_mux = ~0;  cin = 0; end
+              `INC: begin b_mux = t; a_mux =  0;  cin = 1; end
+              `DEC: begin b_mux = t; a_mux = ~0;  cin = 0; end
             endcase
 
          end
 
          // THE ONLY ARITHMETIC LINE
-         {nxt_c, nxt_tos} = a_mux + b_mux + cin;
+         {C, T} = a_mux + b_mux + cin;
 
-         // PASS 2: Logical operations cleanly overwrite nxt_tos if active
+         // PASS 2: Logical operations cleanly overwrite T if active
          if (grp[1]) begin // (this cheaply detects ALU)
 
             // DROP logic embedded directly
-            nxt_nos = n2;
-            `ifdef ENABLE_SPILL_STACK
-            nxt_sp  = sp - 1;
+            N = n2;
+            `ifdef DSTACK
+            SP = sp - 1;
             `endif
 
-            // nxt_n2 is bypassed here; handled cleanly at the clock edge below
+            // N2 is bypassed here; handled cleanly at the clock edge below
             case (sub_op)
-              `AND:  nxt_tos = tos & nos;
-              `OR :  nxt_tos = tos | nos;
-              `XOR:  nxt_tos = tos ^ nos;
-              `DROP: nxt_tos = nos;
+              `AND:  T = t & n;
+              `OR :  T = t | n;
+              `XOR:  T = t ^ n;
+              `DROP: T = n;
             endcase
 
          end else if (sub_op[2]) begin
 
             case (sub_op)
-	      `SHR:  begin nxt_tos = tos /  2; end 
-	      `SHR4: begin nxt_tos = tos / 16; end
-	      `SHL:  begin nxt_tos = tos *  2; end 
-	      `SHL4: begin nxt_tos = tos * 16; end 
+	      `SHR:  begin T = t /  2; end 
+	      `SHR4: begin T = t / 16; end
+	      `SHL:  begin T = t *  2; end 
+	      `SHL4: begin T = t * 16; end 
             endcase
             
 	    // saves one LUT, lol
 	    if (grp == `REG && sub_op[2])
-	      nxt_c = sub_op[1] ? (sub_op[0] ? tos[3] : tos[7]) : (sub_op[0] ? tos[4] : tos[0]);
+	      C = sub_op[1] ? (sub_op[0] ? t[3] : t[7]) : (sub_op[0] ? t[4] : t[0]);
 
          end
 
       end else if (grp == `STACK) begin
          
          case (sub_op)
-           `OVER: begin nxt_tos = nos; nxt_nos = tos; nxt_n2  = nos; `ifdef ENABLE_SPILL_STACK nxt_sp = sp + 1; `endif end // Pushes onto stack
-           `SWAP: begin nxt_tos = nos; nxt_nos = tos;                                 end // No depth change
-           `DUP:  begin                nxt_nos = tos; nxt_n2  = nos; `ifdef ENABLE_SPILL_STACK nxt_sp = sp + 1; `endif end // Pushes onto stack
+	   // NO CHANGE
+           `SWAP: begin T = n; N = t;                                            end
+	   // PUSHES
+           `OVER: begin T = n; N = t; N2  = n; `ifdef DSTACK SP = sp + 1; `endif end
+           `DUP:  begin        N = t; N2  = n; `ifdef DSTACK SP = sp + 1; `endif end
          endcase
 
       end else if (grp == `BRANCH) begin
+
          if (z) begin
-            nxt_pc = nos;
+            PC = n;
          end
+
       end
    end
 
@@ -167,44 +164,68 @@ module mini8 (
    // 7. CONCERN E: Flattened Sequential Storage
    // ==========================================================
    always @(posedge clk or negedge rst_n) begin
+
       if (!rst_n) begin
+
          pc    <= 0;
          c_reg <= 0;
-         tos   <= 8'hc;
-         nos   <= 8'hb;
+         t   <= 8'hc;
+         n   <= 8'hb;
          n2    <= 8'ha;
-         `ifdef ENABLE_SPILL_STACK
+
+         `ifdef DSTACK
          sp    <= 0;
          `endif
+
       end else begin
-         pc    <= nxt_pc;    
-         c_reg <= nxt_c; 
-         tos   <= nxt_tos;   
-         nos   <= nxt_nos;
 
-         `ifdef ENABLE_SPILL_STACK
-         sp    <= nxt_sp;
+         pc    <= PC;    
+         c_reg <= C; 
+         t   <= T;   
+         n   <= N;
 
-         // Synchronous Read: Only access RAM when a true DROP group is active
+	 // -- ALL STACK UPDATES 
+	 // TODO: maybe too complicated - simplify?
+         `ifdef DSTACK
+
+         sp    <= SP;
+
+         // - Synchronous Read: Only access RAM when a true DROP group is active
          if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
-            n2 <= stack_mem[nxt_sp]; // Safe, back-to-back streaming pop read
+	    
+	    // POP
+            n2 <= stack[SP];
+
          end else begin
-            n2 <= nxt_n2;            // Keep normal combinatorial calculation
+
+            // Keep normal combinatorial calculation
+	    n2 <= N2;
+
          end
 
-         // Sync Write to LUT RAM on Stack Growth
+
+         // - SPILLING values to LUT RAM on Stack Growth
          if (is_lit) begin
+
 	    // PUSH
-            stack_mem[sp] <= n2;
+            stack[sp] <= n2; //  TODO: correct?
+
          end else if (grp == `STACK) begin
-	    // SPILL
+
+	    // OVER DUP "implementation" wwhy here? Why not use N2
             if (sub_op == `OVER || sub_op == `DUP) begin
-               stack_mem[sp] <= tos;
+               stack[sp] <= t; // TODO: correct?
             end
+
          end
+
          `else
-         n2    <= nxt_n2;
+
+	 // Just simply update if no deep SPILL stack
+         n2    <= N2;
+
          `endif
+
       end
    end
 endmodule
