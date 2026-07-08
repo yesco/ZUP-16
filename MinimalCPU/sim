@@ -1,5 +1,11 @@
 rm -f $1.sim
+
 iverilog -o $1.sim $1.v $1_tb.v || exit
+
+# we default to using Tang nano 20K!
+
+#iverilog -o $1.sim $1.v $1_tb.v /data/data/com.termux/files/usr/share/yosys/gowin/cells_sim.v || exit
+
 vvp $1.sim | tee $1.out || exit
 
 git diff -U9999 $1.out

@@ -2,7 +2,26 @@
 //
 // Editing: Only change lines if really needed, any other changes ask
 
+// ==========================================================
+// MASTER STACK CONFIGURATION CONTROLS
+// Un-comment ONLY ONE line below to select your architecture
+// ==========================================================
+ `define STACK_NONE       // 1. Pure 3-register core (Original baseline)
+//`define STACK_FLIPFLOP   // 2. 32x8 Flattened Flip-Flop array (Original spill method)
+//`define STACK_LUTRAM     // 3. 32x8 Hardware Primitive Slices (Ultra-low gate count)
+
+// --- Clean, Toolchain-Safe Macro Gating Hierarchy ---
+`ifdef STACK_LUTRAM
+   `define DSTACK
+`elsif STACK_FLIPFLOP
+   `define DSTACK
+`endif
+
+
+////////////////////////////////////////////////////////////
+
 `include "mini8_inc.v"
+
 
 module mini8 (
               input wire       clk, 
@@ -23,10 +42,44 @@ module mini8 (
    reg        c_reg;
    reg [7:0]  t, n, n2;
 
+   wire [7:0] acc;
+   wire       c_in;
+
    `ifdef DSTACK
-   // 32-element Overflow Stack RAM and Pointer
-   reg [7:0]  stack [0:31];
    reg [4:0]  sp, SP;
+   wire [7:0] ram_data_out;
+   wire       write_en = (SP > sp);
+
+   // -------------------------------------------------------
+   // PHYSICAL IMPLEMENTATION LAYER SELECTION
+   // -------------------------------------------------------
+   `ifdef STACK_LUTRAM
+      // --- ALTERNATIVE A: Hardware Primitive LUT-RAM Slices (Dual-Mode) ---
+      `ifdef SYNTHESIS
+         // Primitives for Yosys Synthesis on Tang Nano 20K
+         wire [4:0] ram_addr = write_en ? sp : SP;
+
+         wire w_en_col0 = write_en && (~sp[4]);
+         wire [7:0] r_data_col0;
+         RAM16S4 ram_low_col0  (.CLK(clk), .WRE(w_en_col0), .AD(ram_addr[3:0]), .DI(n2[3:0]), .DO(r_data_col0[3:0]));
+         RAM16S4 ram_high_col0 (.CLK(clk), .WRE(w_en_col0), .AD(ram_addr[3:0]), .DI(n2[7:4]), .DO(r_data_col0[7:4]));
+
+         wire w_en_col1 = write_en && sp[4];
+         wire [7:0] r_data_col1;
+         RAM16S4 ram_low_col1  (.CLK(clk), .WRE(w_en_col1), .AD(ram_addr[3:0]), .DI(n2[3:0]), .DO(r_data_col1[3:0]));
+         RAM16S4 ram_high_col1 (.CLK(clk), .WRE(w_en_col1), .AD(ram_addr[3:0]), .DI(n2[7:4]), .DO(r_data_col1[7:4]));
+
+         assign ram_data_out = SP[4] ? r_data_col1 : r_data_col0;
+      `else
+         // Behavioral Array for clean Icarus Verilog Simulation Trace
+         reg [7:0] stack [0:31];
+         assign ram_data_out = stack[SP];
+      `endif
+   `else
+      // --- ALTERNATIVE B: Flattened Flip-Flop Register Array ---
+      reg [7:0] stack [0:31];
+      assign ram_data_out = stack[SP];
+   `endif
    `endif
 
    assign acc  = t;
@@ -65,7 +118,7 @@ module mini8 (
       PC = pc + 1;
 
       `ifdef DSTACK
-      SP    = sp;
+      SP = sp;
       `endif
 
       // Shared Operand Route Baseline Defaults
@@ -144,11 +197,9 @@ module mini8 (
       end else if (grp == `STACK) begin
          
          case (sub_op)
-	   // NO CHANGE
            `SWAP: begin T = n; N = t;                                            end
-	   // PUSHES
-           `OVER: begin T = n; N = t; N2  = n; `ifdef DSTACK SP = sp + 1; `endif end
-           `DUP:  begin        N = t; N2  = n; `ifdef DSTACK SP = sp + 1; `endif end
+           `OVER: begin T = n; N = t; N2 = n; `ifdef DSTACK SP = sp + 1; `endif  end
+           `DUP:  begin        N = t; N2 = n; `ifdef DSTACK SP = sp + 1; `endif  end
          endcase
 
       end else if (grp == `BRANCH) begin
@@ -186,38 +237,36 @@ module mini8 (
 
          // -- ALL STACK UPDATES 
          `ifdef DSTACK
-	 begin
 
-            sp    <= SP;
+         sp    <= SP;
 
-            // SPILL
-            if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
-            
-               // POP
-               n2 <= stack[SP];
+         // - Synchronous Read Interface
+         if (!is_lit && (grp == `ALU || grp == `REG) && grp[1]) begin
+            n2 <= ram_data_out;
+         end else begin
+            n2 <= N2;
+         end
 
-            end else begin
-
-               n2 <= N2;
-	       
-            end
-
-            // - CLEANED SPILLING: Whenever the stack pointer grows, 
-            // save the value pushed out from the bottom of the hardware registers.
-            if (SP > sp) begin
-	       
-               stack[sp] <= n2; 
-
-            end
-
-	 end
+         // - Spilling Array Operations Selection
+         `ifdef STACK_LUTRAM
+            `ifdef SYNTHESIS
+               // Hardware primitive write tracking is handled by the macro layout above
+            `else
+               // Simulation shadow trace write logic for the simulation LUT-RAM array model
+               if (write_en) begin
+                  stack[sp] <= n2;
+               end
+            `endif
          `else
-	 begin 
+            // Sequential write logic for the standalone behavioral Flip-Flop memory array alternative
+            if (write_en) begin
+               stack[sp] <= n2;
+            end
+         `endif
 
-            // Just simply update if no deep SPILL stack
-            n2    <= N2;
-
-	 end
+         `else
+         // Default fallback calculation if no backing deep stack is running
+         n2    <= N2;
          `endif
 
       end

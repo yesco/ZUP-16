@@ -1,9 +1,3 @@
-// COMMENT THIS LINE OUT TO DISABLE/REMOVE THE SPILL STACK COMPLETELY
-// ( comemnts out to optimize core with ./count mini )
-
-//`define DSTACK
-
-
 // --- Master Global Architecture Definitions ---
 `define BITSY   4'b0000
 `define BITSY2  4'b0000
