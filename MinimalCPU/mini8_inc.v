@@ -1,7 +1,7 @@
 // COMMENT THIS LINE OUT TO DISABLE/REMOVE THE SPILL STACK COMPLETELY
 // ( comemnts out to optimize core with ./count mini )
 
-`define DSTACK
+//`define DSTACK
 
 
 // --- Master Global Architecture Definitions ---
