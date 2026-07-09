@@ -1,6 +1,7 @@
 // VSIW: Very SHort Instruction Word, "VLIW but for byte"
 
-`define STACKSIZE 31
+//`define STACKSIZE 31
+`define STACKSIZE 0
 
 // just 8 bits for testing
 `define WORD [7:0]
@@ -8,17 +9,17 @@
 // OP-code always BYTE
 `define BYTE [7:0]
 
-module mini8 (
-              input wire       clk, 
-              input wire       rst_n,
-              input wire `BYTE op,
+module vsiw (
+  input wire       clk, 
+  input wire       rst_n,
+  input wire `BYTE op,
 
-              // External flag monitors
-              output wire c,
-              output wire z, 
-              output wire neg,
-              output wire v  
-              );
+  // External flag monitors
+  output wire c,
+  output wire z, 
+  output wire neg,
+  output wire v  
+);
 
    // ==========================================================
    // 1. Storage & Wire Aliases (The Background Map)
@@ -109,70 +110,92 @@ module mini8 (
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          // ------------------------------------------------------
          case (opcode)
+           // =========================================================
+           // 000: NOP / DROP DUALITY
+           // =========================================================
            3'b000: begin
-              if (!drop_bit) begin
+              if (!drop_bit) begin // DROP: (n2 nos tos - n2 nos tos)
                  T  = t;
                  N  = n;
                  N2 = n2;
               end
+              // else: NOP: (n2 nos tos - n2 nos)
            end
+
+           // =========================================================
+           // 001: DUP / SWAP DUALITY
+           // =========================================================
            3'b001: begin
-              if (drop_bit) begin
+              if (drop_bit) begin // SWAP: (n2 nos tos - n2 tos nos)
                  N  = t;
                  N2 = n;
                  sd = SIGNED_HOLD;
-              end else begin
+              end else begin // DUP: (n2 nos tos - n2 nos tos tos)
                  T  = t;
                  N  = t;
                  N2 = n;
                  sd = SIGNED_PUSH;
               end
            end
+
+           // =========================================================
+           // 010: TUCK / OVER DUALITY
+           // 010: THE PROPAGATION PAIR (Polar Reverses)
+           // =========================================================
            3'b010: begin
-              sd = SIGNED_PUSH;
-              if (drop_bit) begin
+              sd = SIGNED_PUSH; // BOTH variants push data down to BRAM
+
+              if (drop_bit) begin  // TUCK: (... n2 nos tos - ... n2 tos nos tos)
                  T  = t;
                  N  = n;
                  N2 = t;
-              end else begin
-                 T  = n;
+              end else begin  // OVER: (... n2 nos tos - ... n2 nos tos nos)
+                 T  = n; // Reduntandt
                  N  = t;
                  N2 = n;
               end
            end
+
+           // =========================================================
+           // 011: ROT / NIP DUALITY
+           // =========================================================
            3'b011: begin
-              if (drop_bit) begin
+              if (drop_bit) begin // NIP: (... n2 nos tos - n2 tos)
                  T  = t;
-              end else begin
+              end else begin // ROT: (n2 nos tos - tos n2 nos)
                  N  = n2;
                  N2 = t;
               end
            end
+
+           // =========================================================
+           // 100: THE ADDITION OPERATION (+)
+           // =========================================================
            3'b100: begin
               T = acc;
-              if (!drop_bit) begin
+
+              if (!drop_bit) begin // ADD.keep: (n2 nos tos - n2 nos tos+nos)
                  N  = n;
                  N2 = n2;
               end
+              // else: ADD: (n2 nos tos - n2 tos+nos)
            end
+
            default: begin
+              // Catch-all for unallocated opcodes
               T  = t;
               N  = n;
               N2 = n2;
-              sd = SIGNED_HOLD;
+              sd = SIGNED_HOLD; // Net stack depth change is zero
            end
          endcase
       end
 
-      // Calculate the physical destination stack pointer value (Signed Arithmetic)
-      // TODO: use signed arith and not inline + and - twice!
-      if (sd == SIGNED_PUSH)      SP = sp + 5'd1;
-      else if (sd == SIGNED_DROP) SP = sp - 5'd1;
-      else                        SP = sp;
-
+      SP = sp + { {4{sd[1]}}, sd[0] };
+      
       // Calculate the next execution state destination for Program Counter
       if (is_instr && pc_bit)     PC = t;
-      else                        PC = pc + 8'd1;
+      else                        PC = pc + 1;
    end
 
    // ==========================================================
