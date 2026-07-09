@@ -121,10 +121,11 @@ module dropbit #(
         end
 
         default: begin
-           // Catch-all for unallocated ALU opcodes
+           // Catch-all for unallocated opcodes
            next_tos = tos;
            next_nos = nos;
            next_n2  = n2;
+           sd       = SIGNED_HOLD; // Net stack depth change is zero
         end
       endcase
    end
