@@ -1,0 +1,21 @@
+      456 zup
+      301 wires
+      781 wire bits
+      301 public wires
+      781 public wire bits
+       12 ports
+      126 port bits
+      456 cells
+        1   GND
+       73   IBUF
+       32   LUT1
+       78   LUT2
+       81   LUT3
+       72   LUT4
+       55   MUX2_LUT5
+        8   MUX2_LUT6
+        2   MUX2_LUT7
+       53   OBUF
+        1   VCC
+       17 submodules
+       17   ALU
