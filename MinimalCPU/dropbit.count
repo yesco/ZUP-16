@@ -1,0 +1,22 @@
+      514 dropbit
+      470 wires
+      708 wire bits
+      470 public wires
+      708 public wire bits
+       10 ports
+       62 port bits
+      514 cells
+        1   GND
+       36   IBUF
+      113   LUT1
+        8   LUT2
+       63   LUT3
+       58   LUT4
+      120   MUX2_LUT5
+       56   MUX2_LUT6
+       24   MUX2_LUT7
+        8   MUX2_LUT8
+       26   OBUF
+        1   VCC
+        8 submodules
+        8   ALU
