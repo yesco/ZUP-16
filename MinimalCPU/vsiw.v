@@ -1,6 +1,12 @@
 // VSIW: Very SHort Instruction Word, "VLIW but for byte"
 
+// "Production"
 //`define STACKSIZE 31
+
+// - Smallest in practice
+//`define STACKSIZE 1
+
+// - Fine for test core pure ./count estimate:
 `define STACKSIZE 0
 
 // just 8 bits for testing
@@ -57,7 +63,7 @@ module vsiw (
    reg [1:0]  sd;
 
    // Prefix Literal Loading Sequencer Flag
-   reg	      prefix;
+   reg prefix;
 
    always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
@@ -82,47 +88,47 @@ module vsiw (
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE PATH
-         if (!literal_active) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
-	 else                 begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
+         if (!prefix) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
+         else         begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
       end else begin
 
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
            // 000: NOP / DROP DUALITY
-	   // DROP: (n2 nos tos - n2 nos tos)
+           // DROP: (n2 nos tos - n2 nos tos)
            // NOP:  (n2 nos tos - n2 nos)
            3'b000: begin
               if (!drop_bit) begin T = t; N = n; N2 = n2; end
            end
 
            // 001: DUP / SWAP DUALITY
-	   // SWAP: (n2 nos tos - n2 tos nos)
-	   // DUP:  (n2 nos tos - n2 nos tos tos)
-	   3'b001: begin
+           // SWAP: (n2 nos tos - n2 tos nos)
+           // DUP:  (n2 nos tos - n2 nos tos tos)
+           3'b001: begin
               if (drop_bit) begin        N = t; N2 = n; sd = SIGNED_HOLD; end
-	      else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
+              else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
            end
 
            // 010: TUCK / OVER DUALITY - THE PROPAGATION PAIR (Polar Reverses)
-	   // TUCK: (... n2 nos tos - ... n2 tos nos tos)
-	   // OVER: (... n2 nos tos - ... n2 nos tos nos)
+           // TUCK: (... n2 nos tos - ... n2 tos nos tos)
+           // OVER: (... n2 nos tos - ... n2 nos tos nos)
            3'b010: begin
               sd = SIGNED_PUSH;
 
               if (drop_bit) begin T = t; N = n; N2 = t; end
-	      else          begin T = n; N = t; N2 = n; end
+              else          begin T = n; N = t; N2 = n; end
            end
 
            // 011: ROT / NIP DUALITY
-	   // NIP: (... n2 nos tos - n2 tos)
-	   // ROT: (n2 nos tos - tos n2 nos)
-	   3'b011: begin
+           // NIP: (... n2 nos tos - n2 tos)
+           // ROT: (n2 nos tos - tos n2 nos)
+           3'b011: begin
               if (drop_bit) begin T = t;                end
-	      else begin                 N = n2;N2 = t; end
+              else begin                 N = n2;N2 = t; end
            end
 
            // 100: THE ADDITION OPERATION (+)
-	   // ADD.keep: (n2 nos tos - n2 nos tos+nos)
+           // ADD.keep: (n2 nos tos - n2 nos tos+nos)
            // ADD:      (n2 nos tos - n2 tos+nos)
            3'b100: begin
               T = acc;
