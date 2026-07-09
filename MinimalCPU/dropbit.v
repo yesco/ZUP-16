@@ -39,13 +39,13 @@ module dropbit #(
         // 000: NOP / DROP DUALITY
         // =========================================================
         3'b000: begin
-           if (!drop_bit) begin // (n2 nos tos - n2 nos tos)
+           if (!drop_bit) begin // DROP: (n2 nos tos - n2 nos tos)
               // NOP override: Override the defaults to FREEZE all data
               next_tos = tos;
               next_nos = nos;
               next_n2  = n2;
            end
-	   // else: (n2 nos tos - n2 nos)
+	   // else: NOP: (n2 nos tos - n2 nos)
 	   
            // If drop_bit is 1 (DROP), we write ZERO lines of code! 
            // The global defaults already perform a perfect DROP.
@@ -55,12 +55,12 @@ module dropbit #(
         // 001: DUP / SWAP DUALITY
         // =========================================================
         3'b001: begin
-          if (drop_bit) begin // (n2 nos tos - n2 tos nos)
+          if (drop_bit) begin // SWAP: (n2 nos tos - n2 tos nos)
               // SWAP: Override next_nos to catch the old TOS
               next_nos = tos;
               next_n2  = nos;
               sd       = SIGNED_HOLD; // Net stack depth change is zero
-           end else begin // (n2 nos tos - n2 nos tos tos)
+           end else begin // DUP: (n2 nos tos - n2 nos tos tos)
               // DUP: TOS stays put, NOS gets TOS, N2 gets old NOS
               next_tos = tos;
               next_nos = tos;
@@ -76,12 +76,12 @@ module dropbit #(
         3'b010: begin
            sd      = SIGNED_PUSH; // BOTH variants push data down to BRAM
 
-           if (drop_bit) begin  // (... n2 nos tos - ... n2 tos nos tos)
+           if (drop_bit) begin  // TUCK: (... n2 nos tos - ... n2 tos nos tos)
               // TUCK: TOS stays put, NOS gets a copy of TOS
               next_tos = tos;
               next_nos = nos;
 	      next_n2  = tos;
-           end else begin  // (... n2 nos tos - ... n2 nos tos nos)
+           end else begin  // OVER: (... n2 nos tos - ... n2 nos tos nos)
               // OVER: TOS gets a copy of NOS, NOS gets the old TOS
               next_tos = nos; // Reduntandt
               next_nos = tos;
@@ -93,10 +93,10 @@ module dropbit #(
         // 011: ROT / NIP DUALITY
         // =========================================================
         3'b011: begin
-           if (drop_bit) begin // (... n2 nos tos - n2 tos)
-              // NIP: TOS freezes, NOS and N2 pull from below
+           if (drop_bit) begin // NIP: (... n2 nos tos - n2 tos)
+	      // NIP: TOS freezes, NOS and N2 pull from below
               next_tos = tos;
-           end else begin // (n2 nos tos - tos n2 nos)
+           end else begin // ROT: (n2 nos tos - tos n2 nos)
               // ROT: Pure 3-element fabric shuffle
               next_nos = n2;
               next_n2  = tos;
@@ -110,12 +110,12 @@ module dropbit #(
            // Both Keep and Drop variants perform the exact same math into next_tos
            next_tos = tos + nos;
 
-           if (!drop_bit) begin // (n2 nos tos - n2 nos tos+nos)
+           if (!drop_bit) begin // ADD.keep: (n2 nos tos - n2 nos tos+nos)
               // Keep Mode (+keep): Freeze NOS and N2 underneath the new sum
               next_nos = nos;
               next_n2  = n2;
            end
-           // else: (n2 nos tos - n2 tos+nos)
+           // else: ADD: (n2 nos tos - n2 tos+nos)
            // If drop_bit is 1 (+drop): The global defaults automatically 
            // pull n2 up to nos, pull BRAM up to n2, and issue a SIGNED_DROP!
         end
