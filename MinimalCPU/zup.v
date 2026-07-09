@@ -10,30 +10,30 @@
 module zup #(
     parameter W = 16
 )(
-    input wire [7:0]   op, // Full 8-bit instruction token
-    input wire [W-1:0] t,  // Current Top of Stack (Live/Bypassed)
-    input wire [W-1:0] n,  // Current Next on Stack (Live/Bypassed)
-    input wire [W-1:0] r,  // Current Return Stack Top (Live/Bypassed)
-    input wire [W-1:0] pc, // Current pc
-    input wire	       c,  // Live Carry input flag
+    input  wire [7:0] op, // Full 8-bit instruction token
+    input  wire `WORD t,  // Current Top of Stack (Live/Bypassed)
+    input  wire `WORD n,  // Current Next on Stack (Live/Bypassed)
+    input  wire `WORD r,  // Current Return Stack Top (Live/Bypassed)
+    input  wire `WORD pc, // Current pc
+    input  wire       c,  // Live Carry input flag
     
-    output reg [W-1:0] T,  // New Top of Stack out
-    output reg [W-1:0] N,  // New Carry output flag
-    output reg	       C,  // New Carry output flag
-    output reg [1:0]   sd, // Data Stack Pointer Delta (0, 1, -1)
-    output reg [1:0]   rd, // Return Stack Pointer Delta (0, 1, -1)
-    output reg [W-1:0] PC  // Next State Program Counter Value out
+    output reg  `WORD T,  // New Top of Stack out
+    output reg  `WORD N,  // New Next on Stack out
+    output reg        C,  // New Carry output flag
+    output reg  [1:0] sd, // Data Stack Pointer Delta (0, 1, -1)
+    output reg  [1:0] rd, // Return Stack Pointer Delta (0, 1, -1)
+    output reg  `WORD PC  // Next State Program Counter Value out
 );
 
-    wire [W-1:0] zeroes = { W{1'b0} };
-    wire [W-1:0] ones   = { W{1'b1} };
+    wire `WORD zeroes = { W{1'b0} };
+    wire `WORD ones   = { W{1'b1} };
 
     wire is_op = op;
     wire [4:0] key = op[4:0];
 
-    reg  [W-1:0] a, b;
-    reg          cin;
-    wire [W:0]   sum = a + b + cin;
+    reg  `WORD a, b;
+    reg        cin;
+    wire [W:0] sum = a + b + cin;
     wire [2*W-1:0] mul = n * t;
 
     always @(*) begin
