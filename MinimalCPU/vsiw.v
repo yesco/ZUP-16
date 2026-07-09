@@ -57,16 +57,16 @@ module vsiw (
    reg [1:0]  sd;
 
    // Prefix Literal Loading Sequencer Flag
-   reg        prefix
+   reg	      prefix;
 
    always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
-         literal_active <= 1'b0;
+         prefix <= 1'b0;
       end else begin
          if (!is_instr) begin
-            literal_active <= 1'b1;
+            prefix <= 1'b1;
          end else begin
-            literal_active <= 1'b0;
+            prefix <= 1'b0;
          end
       end
    end
@@ -82,17 +82,8 @@ module vsiw (
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE PATH
-         if (!literal_active) begin
-            T  = {1'b0, op[6:0]};
-            N  = t;
-            N2 = n;
-            sd = SIGNED_PUSH;
-         end else begin
-            T  = (t << 7) | op[6:0];
-            N  = n;
-            N2 = n2;
-            sd = SIGNED_HOLD;
-         end
+         if (!literal_active) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
+	 else                 begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
       end else begin
 
          // CORE INSTRUCTION SPECIFIC OVERRIDES
