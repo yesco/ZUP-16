@@ -6,7 +6,7 @@
 // MASTER STACK CONFIGURATION CONTROLS
 // Un-comment ONLY ONE line below to select your architecture
 // ==========================================================
- `define STACK_NONE       // 1. Pure 3-register core (Original baseline)
+`define STACK_NONE       // 1. Pure 3-register core (Original baseline)
 //`define STACK_FLIPFLOP   // 2. 32x8 Flattened Flip-Flop array (Original spill method)
 //`define STACK_LUTRAM     // 3. 32x8 Hardware Primitive Slices (Ultra-low gate count)
 
@@ -39,11 +39,11 @@ module mini8 (
    // ==========================================================
    // 1. Storage & Wire Aliases (The Background Map)
    // ==========================================================
-   reg        c_reg;
+//   reg        c_reg;
    reg [7:0]  t, n, n2;
 
    wire [7:0] acc;
-   wire       c_in;
+//   wire       c_in;
 
    `ifdef DSTACK
    reg [4:0]  sp, SP;
@@ -83,9 +83,11 @@ module mini8 (
    `endif
 
    assign acc  = t;
-   assign c_in = c_reg;
+//   assign c_in = c_reg;
+//   assign c_in = 0;
 
-   assign c = c_reg;
+//   assign c = c_reg;
+   assign c = 0;
    assign z = (t == 8'd0); 
    assign neg = t;
    assign v = 0;
@@ -102,7 +104,7 @@ module mini8 (
    reg [7:0]  PC, T, N, N2;
 
    // --- Single-Adder Control Mux Nets ---
-   reg        cin;
+//   reg        cin;
    reg [7:0]  a_mux, b_mux;
 
    // ==========================================================
@@ -114,7 +116,7 @@ module mini8 (
       T  = t;
       N  = n;
       N2 = n2;
-      C  = c_reg; 
+//      C  = c_reg;
       PC = pc + 1;
 
       `ifdef DSTACK
@@ -122,49 +124,54 @@ module mini8 (
       `endif
 
       // Shared Operand Route Baseline Defaults
-      cin   = 0;
+//      cin   = 0;
 
       a_mux = n;
       b_mux = t;
       
       if (is_lit) begin
 
+	 // TODO: not sure why reset C? but if remove LUT 133 -> 156
+//	 C= 0;
+	 
          // PUSH logic embedded directly + RAM Spill
-         C = 0;
          T = {1'b0, lit_data};
          N = t;
          N2= n;
 
          `ifdef DSTACK
-         SP  = sp + 1;
+         SP = sp + 1;
          `endif
 
       end else if (grp == `ALU || grp == `REG) begin
 
          // PASS 1: Set up the routing parameters for arithmetic operations
          case (sub_op)
-           `ADD: begin b_mux = t;  cin = 0;      end
-           `ADC: begin b_mux = t;  cin = c_reg;  end
-           `SUB: begin b_mux = ~t; cin = 1;      end
-           `SBC: begin b_mux = ~t; cin = ~c_reg; end
+           `ADD: begin b_mux = t;       end
+           `SUB: begin b_mux = ~t;      end
          endcase 
 
          if (grp == `REG) begin 
 
 	    // TODO: if INC(+DEC) was ALU blocked, would it be chepaer?
             case (sub_op)
-              `INC: begin b_mux = t; a_mux =  0;  cin = 1; end
-              `DEC: begin b_mux = t; a_mux = ~0;  cin = 0; end
+              `INC: begin b_mux = t; a_mux =  0; end
+              `DEC: begin b_mux = t; a_mux = ~0; end
             endcase
 
          end
 
          // THE ONLY ARITHMETIC LINE
-         {C, T} = a_mux + b_mux + cin;
+//         {C, T} = a_mux + b_mux + cin;
+	 T = a_mux + b_mux;
+	 
 
          // PASS 2: Logical operations cleanly overwrite T if active
          if (grp[1]) begin // (this cheaply detects ALU)
 
+	    // Restore C, lol (looks funny but cost nothing this way)
+//	    C= c;
+	    
             // DROP logic embedded directly
             N = n2;
             `ifdef DSTACK
@@ -189,8 +196,8 @@ module mini8 (
             endcase
             
 	    // saves one LUT, lol
-	    if (grp == `REG && sub_op[2])
-	      C = sub_op[1] ? (sub_op[0] ? t[3] : t[7]) : (sub_op[0] ? t[4] : t[0]);
+//	    // 	    if (grp == `REG && sub_op[2])
+//	      C = sub_op[1] ? (sub_op[0] ? t[3] : t[7]) : (sub_op[0] ? t[4] : t[0]);
 
          end
 
@@ -219,7 +226,7 @@ module mini8 (
       if (!rst_n) begin
 
          pc    <= 0;
-         c_reg <= 0;
+//         c_reg <= 0;
          t     <= 8'hc;
          n     <= 8'hb;
          n2    <= 8'ha;
@@ -231,7 +238,7 @@ module mini8 (
       end else begin
 
          pc    <= PC;    
-         c_reg <= C; 
+//         c_reg <= C; 
          t     <= T;   
          n     <= N;
 

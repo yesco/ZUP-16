@@ -110,6 +110,7 @@ module mini8_tb;
       `PROM(`iDEC);
       `PROM(`iDEC);
       `PROM(`iDEC);
+      `PROM(8'b01101101);
       `PROM(`iSHL);
       `PROM(`iSHL);
       `PROM(`iSHR);
