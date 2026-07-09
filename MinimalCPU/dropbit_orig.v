@@ -57,6 +57,7 @@ module dropbit_orig #(
             // 2. DUP / SWAP DUALITY
             // =========================================================
             3'b001: begin
+// not verified
                 if (drop_bit) begin
                     // SWAP: TOS and NOS exchange places. Net depth change is zero.
                     next_tos = nos;
@@ -73,12 +74,14 @@ module dropbit_orig #(
             // 3. TUCK / OVER DUALITY (Polar Opposites)
             // =========================================================
             3'b010: begin
+// WRONG!
                 if (drop_bit) begin
                     // OVER: TOS gets a copy of NOS. Stack drops to balance depth.
                     next_tos = nos;
                     next_nos = n2;
                     next_n2  = bram_refill_val;
                     sd       = SIGNED_DROP;
+// WRONG!
                 end else begin
                     // TUCK: NOS gets TOS. Old NOS slides down to N2.
                     next_nos = tos;

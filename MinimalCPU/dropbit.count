@@ -1,20 +1,20 @@
-      514 dropbit
-      470 wires
-      708 wire bits
-      470 public wires
-      708 public wire bits
+      459 dropbit
+      408 wires
+      626 wire bits
+      408 public wires
+      626 public wire bits
        10 ports
        62 port bits
-      514 cells
+      459 cells
         1   GND
        36   IBUF
-      113   LUT1
-        8   LUT2
-       63   LUT3
-       58   LUT4
-      120   MUX2_LUT5
-       56   MUX2_LUT6
-       24   MUX2_LUT7
+       94   LUT1
+       11   LUT2
+       26   LUT3
+       88   LUT4
+      104   MUX2_LUT5
+       48   MUX2_LUT6
+       16   MUX2_LUT7
         8   MUX2_LUT8
        26   OBUF
         1   VCC
