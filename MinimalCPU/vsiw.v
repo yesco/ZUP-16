@@ -1,4 +1,11 @@
-// VSIW: Very SHort Instruction Word, "VLIW but for byte"
+// VSIW: Very SHort Instruction Word, "VLIW but for byte instruction"
+
+// SYSTEM RULES:
+// 1. change minimal amount of code for feature only.
+// 2. don't make temporary "fixed" comments.
+// 3. don't use TABs, change indentation, or structure.
+// 4. if instructions conflict, say so an make no changes.
+
 
 // "Production"
 //`define STACKSIZE 31
