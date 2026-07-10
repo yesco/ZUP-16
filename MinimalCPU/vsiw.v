@@ -41,7 +41,7 @@ module vsiw (
    wire is_instr = op[7];
    wire pc_bit   = op[6];
    wire drop_bit = op[5];
-   wire [2:0] opcode = op[4:2]; // TODO: change to 5 bits
+   wire [4:0] opcode = op[4:0];
 
    // Hardware Accumulator Path
    wire [8:0] sum = t + n;
@@ -97,47 +97,47 @@ module vsiw (
          // VARIABLE-LENGTH LITERAL PIPELINE PATH
          if (!prefix) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
          else         begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
-      end else begin
+      end else if (!pc_bit) begin
 
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
-           // 000: NOP / DROP DUALITY
+           // Row 1: NOP / DROP DUALITY
            // DROP: (n2 nos tos - n2 nos tos)
            // NOP:  (n2 nos tos - n2 nos)
-           3'b000: begin
+           5'b01010: begin
               if (!drop_bit) begin T = t; N = n; N2 = n2; end
            end
 
-           // 001: DUP / SWAP DUALITY
+           // Row 1: DUP / SWAP DUALITY
            // SWAP: (n2 nos tos - n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
-           3'b001: begin
+           5'b01011: begin
               if (drop_bit) begin        N = t; N2 = n; sd = SIGNED_HOLD; end
               else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
            end
 
-           // 010: TUCK / OVER DUALITY - THE PROPAGATION PAIR (Polar Reverses)
+           // Row 1: TUCK / OVER DUALITY - THE PROPAGATION PAIR (Polar Reverses)
            // TUCK: (... n2 nos tos - ... n2 tos nos tos)
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
-           3'b010: begin
+           5'b01100: begin
               sd = SIGNED_PUSH;
 
               if (drop_bit) begin T = t; N = n; N2 = t; end
               else          begin T = n; N = t; N2 = n; end
            end
 
-           // 011: ROT / NIP DUALITY
+           // Row 1: ROT / NIP DUALITY
            // NIP: (... n2 nos tos - n2 tos)
            // ROT: (n2 nos tos - tos n2 nos)
-           3'b011: begin
+           5'b01101: begin
               if (drop_bit) begin T = t;                end
               else begin                 N = n2;N2 = t; end
            end
 
-           // 100: THE ADDITION OPERATION (+)
+           // Row 2: THE ADDITION OPERATION (+)
            // ADD.keep: (n2 nos tos - n2 nos tos+nos)
            // ADD:      (n2 nos tos - n2 tos+nos)
-           3'b100: begin
+           5'b10000: begin
               T = acc;
 
               if (!drop_bit) begin N  = n; N2 = n2; end
@@ -147,6 +147,9 @@ module vsiw (
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end
 
          endcase
+      end else begin
+         // Default path when pc_bit is set (Control Flow takes precedence)
+         T = t; N = n; N2 = n2; sd = SIGNED_HOLD;
       end
 
       SP = sp + { {4{sd[1]}}, sd[0] };
