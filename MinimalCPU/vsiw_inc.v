@@ -3,132 +3,113 @@
 // 32 instructions
 // ===============
 
-// REG:    ror  rol  asr         shr  shl  shr4 shl4
-//  drop:   u    s    e    l      e    s    s    s
-//  pc:
-//  dpc:
+// Numbering
+//---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
-// STK :   inv  rev  nop  dup    tuck rot  read writ
-//  drop             drop swap   over nip  
-//  pc:
-//  dpc:
+//---     8:   inv  rev  nop  dup     tuck rot  read writ
+//    32+ 8:             drop swap    over nip  
 
+//---    16:   +=   -=   inc  dec     neg      
+//    32+16:   add  sub                    and  or   xor
 
-// ALU:   +=   -=   inc  dec     neg      
-//  drop: add  sub                    and  or   xor
-//  pc:
-//  dpc:
+//---    24:   r>   rcpy for  >r                sign true
+// 64+   24:   jz   jn   next jsr
+// 64+32+24:   
 
-// RST:   r>   rcpy for  >r                     true
-//  pc:   jz   jn   next jsr                        
-//  drop:  ?    ?    ?    ?
-//  dpc:   ?    ?    ?    ?
+// --- 5-Bit Base Instruction Encodings ---
 
+// Row 0: Registers & Shifters (0 to 7)
+`define ROR   5'b00000
+`define ROL   5'b00001
+`define ASR   5'b00010
+`define XXX   5'b00011
+`define SHR   5'b00100
+`define SHL   5'b00101
+`define SHR4  5'b00110
+`define SHL4  5'b00111
 
-`define STACK  2'b00
-`define REG    2'b01
-`define ALU    2'b10
-`define RSTACK 2'b11
+// Row 1: Pure Stack Manipulators (8 to 15)
+`define INV   5'b01000
+`define REV   5'b01001
+`define NOP   5'b01010
+`define DUP   5'b01011
+`define TUCK  5'b01100
+`define ROT   5'b01101
+`define READ  5'b01110
+`define WRIT  5'b01111
 
-`define iSIGN   {"SIGN", {1'b1, `BITSY, `SIGN}}
+// Row 2: Arithmetic & Logical Core (16 to 23)
+`define ADD   5'b10000
+`define SUB   5'b10001
+`define INC   5'b10010
+`define DEC   5'b10011
+`define NEG   5'b10100
+`define AND   5'b10101
+`define OR    5'b10110
+`define XOR   5'b10111
 
-`define iJZ   {"JZ  ", {1'b1, `BRANCH,  3'b000}}
-`define iJNZ  {"JNZ ", {1'b1, `BRANCH2, 3'b000}}
-
-// REG     4'b1100
-// Register Ops (not moving stack)
-`define INC  3'b000
-`define DEC  3'b001
-`define ROR  3'b010
-`define ASR  3'b011
-`define SHR  3'b100
-`define SHR4 3'b101
-`define SHL  3'b110
-`define SHL4 3'b111
-
-`define iINC  {"INC ", {1'b1, `REG, `INC}}
-`define iDEC  {"DEC ", {1'b1, `REG, `DEC}}
-`define iROR  {"ROR ", {1'b1, `REG, `ROR}}
-`define iASR  {"ASR ", {1'b1, `REG, `ASR}}
-`define iSHR  {"SHR ", {1'b1, `REG, `SHR}}
-`define iSHR4 {"SHR4", {1'b1, `REG, `SHR4}}
-`define iSHL  {"SHL ", {1'b1, `REG, `SHL}}
-`define iSHL4 {"SHL4", {1'b1, `REG, `SHL4}}
-
-// STACK
-`define st0  3'b000
-`define MUL  3'b001
-`define NOP  3'b010
-`define ROT  3'b011
-`define SWAP 3'b100
-`define OVER 3'b101
-`define TUCK 3'b110
-`define DUP  3'b111
-
-`define ist0  {"st0 ", {1'b1, `STACK, `st0}}
-`define iMUL  {"MUL ", {1'b1, `STACK, `MUL}}
-
-`define iNOP  {"NOP ", {1'b1, `STACK, `NOP}}
-`define iNOP  {"NOP ", {1'b1, `STACK, `NOP}}
-
-`define iROT  {"ROT ", {1'b1, `STACK, `ROT}}
-`define iSWAP {"SWAP", {1'b1, `STACK, `SWAP}}
-`define iOVER {"OVER", {1'b1, `STACK, `OVER}}
-`define iTUCK {"TUCK", {1'b1, `STACK, `TUCK}}
-`define iDUP  {"DUP ", {1'b1, `STACK, `DUP}}
-
-// ALU     4'b1110
-// ALU Sub-instruction Opcodes
-`define ADD  3'b000
-`define ADC  3'b001
-`define SUB  3'b010
-`define SBC  3'b011
-`define AND  3'b100
-`define OR   3'b101
-`define XOR  3'b110
-`define DROP 3'b111
-
-`define iADD  {"ADD ", {1'b1, `ALU,   `ADD}}
-`define iADC  {"ADC ", {1'b1, `ALU,   `ADC}}
-`define iSUB  {"SUB ", {1'b1, `ALU,   `SUB}}
-`define iSBC  {"SBC ", {1'b1, `ALU,   `SBC}}
-`define iAND  {"AND ", {1'b1, `ALU,   `AND}}
-`define iOR   {"OR  ", {1'b1, `ALU,   `OR}}
-`define iXOR  {"XOR ", {1'b1, `ALU,   `XOR}}
-`define iDROP {"DROP", {1'b1, `ALU,   `DROP}}
-
-// RSTACK  4'b1111
-
-// #`define iLIT 8'b0????_???
+// Row 3: Return Stack & Control Flow (24 to 31)
+`define RPOP  5'b11000
+`define RCPY  5'b11001
+`define FOR   5'b11010
+`define RPUSH 5'b11011
+`define U28   5'b11100
+`define U29   5'b11101
+`define SIGN  5'b11110
+`define TRUE  5'b11111
 
 
+// --- 8-Bit Fused Instruction Composite Bytes ---
 
-// -- DROPPERS: (a b -> c)
-8'b110??_000: T= t + n;     // + 
-8'b110??_001: T= t & n;     // AND
-8'b110??_010: T= t | n;     // OR
-8'b110??_011: T= t ^ n;     // XOR
-// 8'b?_110??_100: ram[t]= n;    // !    (value remain)
-8'b110??_101: R= t;         // !R
-// 8'b110??_110: PC= t;        // GOTO (Bit 4=1: Always jumps regardless of !n flag state)
-// 8'b110??_111: PC= t;        // %BRANCH (Bit 4=0 AND !n=1: Conditional Jump executes)
-8'b110??_110:
-// 8'b110??_100: ;             // ZBRANCH (handle outside)
-8'b110??_111:
+// Row 0 Fused Primitives (is_instr=1, pc_bit=0, drop_bit=0)
+`define iROR   {"ROR ", {3'b100, `ROR}}
+`define iROL   {"ROL ", {3'b100, `ROL}}
+`define iASR   {"ASR ", {3'b100, `ASR}}
+`define iXXX   {"XXX ", {3'b100, `XXX}}
+`define iSHR   {"SHR ", {3'b100, `SHR}}
+`define iSHL   {"SHL ", {3'b100, `SHL}}
+`define iSHR4  {"SHR4", {3'b100, `SHR4}}
+`define iSHL4  {"SHL4", {3'b100, `SHL4}}
+
+// Row 1: Stack Primitives &  Bits & IO
+`define iINV   {"INV ", {3'b100, `INV}}
+`define iREV   {"REV ", {3'b100, `REV}}
+
+`define iNOP   {"NOP ", {3'b100, `NOP}}
+`define iDROP  {"DROP", {3'b101, `NOP}}
+`define iDUP   {"DUP ", {3'b100, `DUP}}
+`define iSWAP  {"SWAP", {3'b101, `DUP}}
+`define iTUCK  {"TUCK", {3'b101, `TUCK}}
+`define iOVER  {"OVER", {3'b100, `TUCK}}
+`define iROT   {"ROT ", {3'b100, `ROT}}
+`define iNIP   {"NIP ", {3'b101, `ROT}}
+
+`define iREAD  {"READ", {3'b100, `READ}}
+`define iWRIT  {"WRIT", {3'b100, `WRIT}}
+
+// Row 2: ALU primitives
+`define iADDEQ {"+=  ", {3'b100, `ADD}}
+`define iADD   {"ADD ", {3'b101, `ADD}}
+`define iSUBEQ {"-=  ", {3'b100, `SUB}}
+`define iSUB   {"SUB ", {3'b101, `SUB}}
+`define iINC   {"INC ", {3'b100, `INC}}
+`define iDEC   {"DEC ", {3'b100, `DEC}}
+`define iNEG   {"NEG ", {3'b100, `NEG}}
+`define iAND   {"AND ", {3'b101, `AND}}
+`define iOR    {"OR  ", {3'b101, `OR}}
+`define iXOR   {"XOR ", {3'b101, `XOR}}
+
+// Gropu 3: Return Stack & Control Structures
+`define iRPOP  {"R>  ", {3'b100, `RPOP}}
+`define iRCPY  {"RCPY", {3'b100, `RCPY}}
+`define iFOR   {"FOR ", {3'b100, `FOR}}
+`define iRPUSH {">R  ", {3'b100, `RPUSH}}
+
+`define iSIGN  {"SIGN", {3'b100, `SIGN}}
+`define iTRUE  {"TRUE", {3'b100, `TRUE}}
 
 
-// -- REGISTER: (a b -> c d)
-8'b100??_000: T= ~t;        // INV
-8'b100??_001: T= t<<1;      // SHL
-8'b100??_010: T= t>>1;      // SHR
-// 8'b101??_011: T= ram[t]     // @
-8'b101??_111:
-
-// -- PRODUCER: (a b -> c d e)
-8'b101??_000: ;             // DUP
-8'b101??_001: T= r;         // @R
-// 8'b101??_000: T= n;         // OVER
-// 8'b101??_000: N2= t;        // TUCK
-8'b101??_010: T= pc;        // ???
-
-// -- SPECIAL: 111_xx_xxx
+`define iJZ    {"JZ  ", {3'b110, `RPOP}}
+`define iJN    {"JN  ", {3'b110, `RCPY}}
+`define iNEXT  {"NEXT", {3'b110, `FOR}}
+`define iJSR   {"JSR ", {3'b110, `RPUSH}}
