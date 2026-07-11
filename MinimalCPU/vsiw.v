@@ -18,6 +18,7 @@
 
 // - Fine for test core pure ./count estimate:
 `define STACKSIZE 0
+`define RSTACKSIZE 0
 
 // just 8 bits for testing
 `define WORD [W-1:0]
@@ -45,8 +46,8 @@ module vsiw (
    localparam W = 8;
 
    // Storage & Wire Aliases (The Background Map)
-   reg `WORD pc, t, n, n2; // Current regs
-   reg `WORD PC, T, N, N2; // Next
+   reg `WORD pc, t, n, n2, r, r2; // Current regs
+   reg `WORD PC, T, N, N2, R, R2; // Next
 
    // Hardwired Instruction Decoding Fields
    wire is_instr = op[7];
@@ -90,13 +91,16 @@ module vsiw (
    // Physical Data Stack Array & Pointer Management
    reg [4:0]  sp, SP, rp, RP;
    
-   reg `WORD  stack [0:`STACKSIZE];
+   reg `WORD   stack [0:`STACKSIZE];
+   reg `WORD  rstack [0:`RSTACKSIZE];
 
-   // Asynch Read Port: Always top value below our n2
-   wire `WORD stack_out = stack[sp];
+   // Asynch Read Port: Always top value below our n2/r2
+   wire `WORD  stack_out =  stack[sp];
+   wire `WORD rstack_out = rstack[sp];
    
    // Condition to spill
    wire       write_sp = (SP > sp);
+   wire       write_rp = (RP > rp);
 
    // Signed Stack Deltas
    localparam HOLD = 2'b00;
@@ -176,7 +180,6 @@ module vsiw (
 	   `SHL:  T = t *  2;
 	   `SHR4: T = t / 16;
 	   `SHL4: T = t * 16;
-
 	   `endif // SHIFTERS
 
 	   `AND: T = t & n;
@@ -201,31 +204,36 @@ module vsiw (
 
 
 	 // Program Control fused
-	 rd = HOLD;
-	 PC = pc_inc;
+	 if (!pc_bit) begin
 
-	 if (pc_bit) begin
-
+	    PC = pc_inc; R = r; R2 = r2; rd = HOLD;
+	    
 	    case (op)
-	      `RTO : begin T  = r; n  = t; n2 = n; sd = PUSH; sr = DROP; end
-	      `RCPY: begin T  = r; n  = t; n2 = n; sd = PUSH;            end
-	      `TOR : begin R  = t; R2 = r;                    sr = PUSH; end
-	      `FOR : begin         R2 = pc_inc;               sr = PUSH; end
+	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; rd = DROP; end
+	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;            end
+	      `TOR : begin R  = t; R2 = r;                    rd = PUSH; end
+	      `FOR : begin         R2 = pc_inc;               rd = PUSH; end
 	    endcase
+	    // FOR: keep R inserts pc_inc into R2 and push r2 down
 	    
 	 end else begin
 
-	    // JZ   JN   NEXT JSR
+	    // Usually means return
+	    PC = R; R2 = rstack_out; rd = DROP;
+
+	    // Overrides
 	    case (op)
-	      `JZ  : if (!t)  PC = t;
-	      `JN  : if (neg) PC = t;
-	      `NEXT: begin    PC = R2;             rd = PUSH; end
-	      `JSR : begin    PC = t; R2 = pc_inc; rd = PUSH; end
+	      `JZ  : begin R = r;      R2 = r2; rd = HOLD;   if (z)   PC = t;  end
+	      `JN  : begin R = r;      R2 = r2; rd = HOLD;   if (neg) PC = t;  end
+	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH;            PC = t;  end
+	      `NEXT: if (r) begin
+		           R = r - 1;  R2 = r2; rd = HOLD;            PC = r2; end
+	      else begin   R = r2;              rd = POP;                      end
 	    endcase
+	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
-	 end // PC
+	 end 
 	 
-
 	 if (sd == DROP) N2 = stack_out;
 
       end
@@ -241,7 +249,8 @@ module vsiw (
 
       if (!rst_n) begin t <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  end
       else        begin t <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP;
-         if (write_sp) begin stack[sp + 5'd1] <= n2; end
+         if (write_sp) begin  stack[sp + 1] <= n2; end
+         if (write_rp) begin rstack[rp + 1] <= r2; end
       end
 
    end
