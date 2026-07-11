@@ -83,9 +83,9 @@ module vsiw (
    
    wire `WORD pc_inc = pc + 1;
 	 
-   // Condition Flag Mapping based entirely on current 't' (TOS)
-   assign z   = (t == {W{1'b0}});
-   assign neg = t[W-1];
+   // Condition Flag on *NOS* as TOS has the jmp value!
+   assign z   = !n;
+   assign neg = n[W-1];
    assign c   = 0;
    assign v   = 0;
 
@@ -227,14 +227,13 @@ module vsiw (
 	    PC = r; R = r2; R2 = rstack_out; rd = DROP;
 
 	    // OVERRIDES ONLY
+	    // (jump on flag or behave like !pc_bit)
 	    case (op)
-	      `JZ  : begin R = r;      R2 = r2; rd = HOLD;   if (z)   PC = t;      end
-	      `JN  : begin R = r;      R2 = r2; rd = HOLD;   if (neg) PC = t;      end
-	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH;            PC = t;      end
-	      `NEXT: if (!r) begin
-		           R = r - 1;  R2 = r2; rd = HOLD;            PC = r2;     end
-	             else begin
-                                                rd = DROP;            PC = pc_inc; end
+	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = z  ? t: pc_inc; end
+	      `JN  : begin R = r;      R2 = r2; rd = HOLD; PC = neg? t: pc_inc; end
+	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =      t;         end
+	      `NEXT: begin R = r - 1;  if (!r)             PC =         pc_inc;
+                            else begin R2 = r2; rd = HOLD; PC = R2;             end end
 	    endcase
 	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
