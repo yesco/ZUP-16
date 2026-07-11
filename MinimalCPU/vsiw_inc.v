@@ -8,13 +8,13 @@
 //      (apparently moving xxx to first pos costs +16 LUT!)
 //---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
-//---     8:   read writ nop  dup     tuck inv  rot  rev
+//---     8:   read writ nop  dup     tuck rot  inv  zero
 //    32+ 8:             drop swap    over nip  
 
 //---    16:   +=   -=   inc  dec     neg      
 //    32+16:   add  sub                    and  or   xor
 
-//---    24:   r>   rcpy for  >r                sign true
+//---    24:   r>   rcpy for  >r      rev  abs  sign true
 // 64+   24:   jz   jn   next jsr
 // 64+32+24:   
 
@@ -38,7 +38,9 @@
 `define TUCK  5'b01100
 `define ROT   5'b01101
 `define INV   5'b01110
-`define REV   5'b01111
+
+`define REV   5'b11111
+//`define ZRO   5'b01111
 
 // Row 2: Arithmetic & Logical Core (16 to 23)
 `define ADD   5'b10000
@@ -55,8 +57,10 @@
 `define RCPY  5'b11001
 `define FOR   5'b11010
 `define RPUSH 5'b11011
-`define U28   5'b11100
-`define U29   5'b11101
+
+//`define REV   5'b11100
+//`define ABS   5'b11101
+
 `define SIGN  5'b11110
 `define TRUE  5'b11111
 
@@ -87,7 +91,7 @@
 `define iNIP   {"NIP ", {3'b101, `ROT}}
 
 `define iINV   {"INV ", {3'b100, `INV}}
-`define iREV   {"REV ", {3'b100, `REV}}
+`define iZERO  {"ZERO", {3'b100, `ZRO}}
 
 // Row 2: ALU primitives
 `define iADDEQ {"+=  ", {3'b100, `ADD}}
@@ -106,6 +110,9 @@
 `define iRCPY  {"RCPY", {3'b100, `RCPY}}
 `define iFOR   {"FOR ", {3'b100, `FOR}}
 `define iRPUSH {">R  ", {3'b100, `RPUSH}}
+
+//`define iREV   {"REV ", {3'b100, `REV}}
+//`define iABS   {"ABS ", {3'b100, `ABS}}
 
 `define iSIGN  {"SIGN", {3'b100, `SIGN}}
 `define iTRUE  {"TRUE", {3'b100, `TRUE}}

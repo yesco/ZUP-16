@@ -1,6 +1,7 @@
 // VSIW: Very SHort Instruction Word, "VLIW but for byte instruction"
 
 // SYSTEM RULES:
+// 0. act as an experience CPU, FORTH and FPGA engineer.
 // 1. change minimal amount of code for feature only.
 // 2. don't make temporary "fixed" comments.
 // 3. don't use TABs, change indentation, or structure.
@@ -65,35 +66,21 @@ module vsiw (
    always @(*) begin
       a = t; b = n; cin = 1'b0;
 
-//      case (opcode) // I think is enough // +30 LUT!!!!
       case (opcode[2:0]) // I think is enough
 
-      `ifdef FISH 
-	// Using mismatch sized constants doesn't match ???
-	
-	`ADD:    begin a = t;                b = n;         cin = 0; end // +5 LUT
-        `INC:    begin a = t;                b = `ZEROES;   cin = 1; end
-        `DEC:    begin a = t;                b = `ONES;     cin = 0; end
-        `SUB:    begin a = ~t;               b = n;         cin = 1; end
-	`INV:    begin a = ~t;               b = `ZEROES;   cin = 0; end
-        `NEG:    begin a = ~t;               b = `ZEROES;   cin = 1; end
-
-	`else
-
-	3'b000:  begin a = t;                b = n;         cin = 0; end // AND
-        3'b001:  begin a = ~t;               b = n;         cin = 1; end // SUB
-        3'b010:  begin a = t;                b = `ZEROES;   cin = 1; end // INC
-        3'b011:  begin a = t;                b = `ONES;     cin = 0; end // DEC
-        3'b100:  begin a = ~t;               b = `ZEROES;   cin = 1; end // NEG
-	3'b101:  begin a = ~t;               b = `ZEROES;   cin = 0; end // INV
-
-	`endif
+	`ADD & 7: begin a = t;                b = n;         cin = 0; end 
+        `SUB & 7: begin a = ~t;               b = n;         cin = 1; end 
+        `INC & 7: begin a = t;                b = `ZEROES;   cin = 1; end 
+        `DEC & 7: begin a = t;                b = `ONES;     cin = 0; end 
+        `NEG & 7: begin a = ~t;               b = `ZEROES;   cin = 1; end 
+	`INV & 7: begin a = ~t;               b = `ZEROES;   cin = 0; end
+	// These cost more
+//	`ABS & 7: begin a = t[W-1] ? ~t : t;  b = `ZEROES;   cin = t[W-1]; end
+//	`ZRO & 7: begin a = `ZEROES;          b = `ONES;     cin = t? 1: 0; end
 	
       endcase
    end
-   `endif // ALU
 
-   `ifdef ALU
    // Single Shared Adder Instance
    wire [W:0] sum = a + b + cin;
    wire `WORD acc = sum[W-1:0];
@@ -202,9 +189,6 @@ module vsiw (
            end
 	   `endif // ALU
 	     
-//        `SHL:    begin a = {t[W-2:0], 1'b0}; b = `ZEROES;   cin = 1'b0; end // + 27 LUT
-//        `SHL:    begin a = t;                b = t;         cin = 1'b0; end // + 14 LUT
-
 	   `ifdef SHIFTERS // + 29 LUT
 
 	   `ROR:  begin T = { t[0], t[W-1:1] }; /// + 6 for 3: ROR,ROL,ASR
@@ -219,8 +203,10 @@ module vsiw (
 	   `SHR4: begin T = t/16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 5
 	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 4
 
-	   `REV:  begin T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // -4 LUT!!!
-                                  N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   // on OP! now at lower row +30!
+	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
+//	   `REV:  begin T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // -4 LUT!!!
+//                                  N = n; N2 = n2; sd = SIGNED_HOLD; end
 
 	   `endif // SHIFTERS
 
