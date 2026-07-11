@@ -6,7 +6,7 @@
 // Numbering
 //---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
-//---     8:   read writ nop  dup     tuck rot  inv  rev
+//---     8:   read writ nop  dup     tuck inv  rot  rev
 //    32+ 8:             drop swap    over nip  
 
 //---    16:   +=   -=   inc  dec     neg      

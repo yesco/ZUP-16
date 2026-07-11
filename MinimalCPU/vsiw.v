@@ -64,16 +64,31 @@ module vsiw (
    `ifdef ALU
    always @(*) begin
       a = t; b = n; cin = 1'b0;
+
 //      case (opcode) // I think is enough // +30 LUT!!!!
       case (opcode[2:0]) // I think is enough
-//	default: begin a = t;                b = n;         cin = 1'b0; end // -5 LUT!
-	`ADD:    begin a = t;                b = n;         cin = 1'b0; end // +5 LUT
-//        `INC:    begin a = t;                b = 1'b1;      cin = 1'b0; end // same
-        `INC:    begin a = t;                b = `ZEROES;   cin = 1'b1; end
-        `DEC:    begin a = t;                b = `ONES;     cin = 1'b0; end
-        `SUB:    begin a = ~t;               b = n;         cin = 1'b1; end
-	`INV:    begin a = ~t;               b = `ZEROES;   cin = 1'b0; end
-        `NEG:    begin a = ~t;               b = `ZEROES;   cin = 1'b1; end
+
+      `ifdef FISH 
+	// Using mismatch sized constants doesn't match ???
+	
+	`ADD:    begin a = t;                b = n;         cin = 0; end // +5 LUT
+        `INC:    begin a = t;                b = `ZEROES;   cin = 1; end
+        `DEC:    begin a = t;                b = `ONES;     cin = 0; end
+        `SUB:    begin a = ~t;               b = n;         cin = 1; end
+	`INV:    begin a = ~t;               b = `ZEROES;   cin = 0; end
+        `NEG:    begin a = ~t;               b = `ZEROES;   cin = 1; end
+
+	`else
+
+	3'b000:  begin a = t;                b = n;         cin = 0; end // AND
+        3'b001:  begin a = ~t;               b = n;         cin = 1; end // SUB
+        3'b010:  begin a = t;                b = `ZEROES;   cin = 1; end // INC
+        3'b011:  begin a = t;                b = `ONES;     cin = 0; end // DEC
+        3'b100:  begin a = ~t;               b = `ZEROES;   cin = 1; end // NEG
+	3'b101:  begin a = ~t;               b = `ZEROES;   cin = 0; end // INV
+
+	`endif
+	
       endcase
    end
    `endif // ALU
@@ -205,9 +220,25 @@ module vsiw (
 	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 4
 
 	   `REV:  begin T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // -4 LUT!!!
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+                                  N = n; N2 = n2; sd = SIGNED_HOLD; end
 
 	   `endif // SHIFTERS
+
+	   // + 13 LUT :-(
+	   `AND: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `OR : begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `XOR: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
+
+	   // AND OR XOR
+
+	   // XXX
+	   // READ WRIT
+	   
+	   // SIGN
+	   // TRUE
+	   
+	   // RPOP RCPY FOR  RPUSH
+	   // JZ   JN   NEXT JSR
 
            // Catch-all for unallocated opcodes
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end
