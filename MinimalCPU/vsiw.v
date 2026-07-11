@@ -1,3 +1,6 @@
+
+
+
 // VSIW: Very SHort Instruction Word, "VLIW but for byte instruction"
 
 // SYSTEM RULES:
@@ -10,8 +13,14 @@
 
 `define W 8
 
+// OPTIONALS
+
 `define ALU
-`define SHIFTERS
+
+`define SHIFTERS // -1 LUT!
+//`define ROTATIONS // + 10 LUT
+//`define REVERSE // + 4 LUT
+
 
 // "Production"
 //`define STACKSIZE 31
@@ -45,8 +54,15 @@ module vsiw (
   output wire v  
 );
 
-//   // Parameters for Data Width Flex
-//   localparam W = 8;
+   // this saves 2 lut, but other ROR ROL ASR cost more...
+   function `WORD reverse;
+      input `WORD in;
+      integer i;
+      begin
+         for (i = 0; i < `W; i = i + 1)
+            reverse[i] = in[`W - 1 - i];
+      end
+   endfunction
 
    // Storage & Wire Aliases (The Background Map)
    reg `WORD pc, t, n, n2, r, r2; // Current regs
@@ -99,7 +115,7 @@ module vsiw (
 
    // Asynch Read Port: Always top value below our n2/r2
    wire `WORD  stack_out =  stack[sp];
-   wire `WORD rstack_out = rstack[sp];
+   wire `WORD rstack_out = rstack[rp];
    
    // Condition to spill
    wire       write_sp = (SP > sp);
@@ -179,9 +195,12 @@ module vsiw (
 
 	   `ifdef SHIFTERS
 
+	   // 225 LUT baseline, 277 LUT if use functions so don't
+	    `ifdef ROTATIONS
 	   `ROR:  T = { t[0], t[`W-1:1] };
-	   `ROL:  T = { t[`W-2:0], t[`W-1] };
+           `ROL:  T = { t[`W-2:0], t[`W-1] };
 	   `ASR:  T = { t[`W-1], t[`W-1:1] };
+	    `endif // ROTATIONS
 
 	   `SHR:  T = t >> 1;
 	   `SHL:  T = t << 1;
@@ -195,11 +214,14 @@ module vsiw (
 	   `XOR: T = t ^ n;
 
 	   // on OP! now at lower row +30!
+
 	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
-//	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // 226
-//	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] };
-
-
+//	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // +7 LUT
+//	   `REV: begin: rev_block integer i; for(i=0; i<`W; i=i+1) T[i] = t[`W-1-i]; end // +66 LUT!!!!
+	   `ifdef REVERSE
+	   `REV: T = reverse(t); // +5 LUT
+	   `endif // REVERSE
+	   
 	   // XXX
 	   // READ WRIT
 	   
