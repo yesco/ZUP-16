@@ -7,8 +7,11 @@
 // 4. if instructions conflict, say so an make no changes.
 
 
-// // +22 LUT only (negations and wirings)!
+// +22 LUT only (negations and wirings)!
 `define ALU
+
+// +29 LUT
+`define SHIFTERS
 
 // "Production"
 //`define STACKSIZE 31
@@ -187,9 +190,24 @@ module vsiw (
 //        `SHL:    begin a = {t[W-2:0], 1'b0}; b = `ZEROES;   cin = 1'b0; end // + 27 LUT
 //        `SHL:    begin a = t;                b = t;         cin = 1'b0; end // + 14 LUT
 
-//	   `SHL: begin 
+	   `ifdef SHIFTERS // + 29 LUT
 
+	   `ROR:  begin T = { t[0], t[W-1:1] }; /// + 6 for 3: ROR,ROL,ASR
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	   `ROL:  begin T = { t[W-2:1], t[W-1:0] };
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	   `ASR:  begin T = { t[W-1], t[W-1], t[W-2:0] };
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
 
+	   `SHR:  begin T = t/2;  N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	   `SHL:  begin T = t*2;  N = n; N2 = n2; sd = SIGNED_HOLD; end // + 0!
+	   `SHR4: begin T = t/16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 5
+	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 4
+
+	   `REV:  begin T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // -4 LUT!!!
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+
+	   `endif // SHIFTERS
 
            // Catch-all for unallocated opcodes
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end
