@@ -233,7 +233,7 @@ module vsiw (
 	      `JN  : begin R = r;      R2 = r2; rd = HOLD; PC = neg? t: pc_inc; end
 	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =      t;         end
 	      `NEXT: begin R = r - 1;  if (!r)             PC =         pc_inc;
-                            else begin R2 = r2; rd = HOLD; PC = R2;             end end
+                            else begin R2 = r2; rd = HOLD; PC = r2;             end end
 	    endcase
 	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
