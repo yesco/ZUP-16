@@ -1,6 +1,3 @@
-
-
-
 // VSIW: Very SHort Instruction Word, "VLIW but for byte instruction"
 
 // SYSTEM RULES:
@@ -16,6 +13,7 @@
 // OPTIONALS
 
 `define ALU
+`define MEM // + 99 LUT! not including memory!
 
 `define SHIFTERS // -1 LUT!
 //`define ROTATIONS // + 10 LUT
@@ -44,9 +42,17 @@
 `include "vsiw_inc.v"
 
 module vsiw (
-  input wire       clk, 
-  input wire       rst_n,
-  input wire `BYTE op,
+  input wire  clk, 
+  input wire  rst_n,
+  input wire  `BYTE op,
+
+  `ifdef MEM
+  output reg  mem_en,
+  output reg  mem_we,
+  output reg  `WORD mem_addr,
+  output reg  `WORD mem_wdata,
+  input wire  `WORD mem_rdata,
+  `endif // MEM	     
 
   output wire c,
   output wire z, 
@@ -147,6 +153,13 @@ module vsiw (
 
       sd = HOLD;
 
+      `ifdef MEM
+      mem_en = 0;
+      mem_we = 0;
+      mem_addr = t;
+      mem_wdata = t;
+      `endif // MEM
+      
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
@@ -222,8 +235,22 @@ module vsiw (
 	   `REV: T = reverse(t); // +5 LUT
 	   `endif // REVERSE
 	   
-	   // XXX
-	   // READ WRIT
+	   `ifdef MEM
+	   `READ: begin
+              mem_en = 1;
+              mem_addr = t;
+              T = mem_rdata;
+           end
+
+           `WRIT: begin
+              mem_en = 1;
+              mem_we = 1;
+              mem_addr = n;
+              mem_wdata = t;
+              if (drop_bit) begin T = n2; N = stack_out; sd = DROP; end
+              else          begin T = n;  N = n2;        sd = DROP; end
+           end
+	   `endif // MEM
 	   
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
