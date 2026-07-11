@@ -8,6 +8,8 @@
 // 4. if instructions conflict, say so an make no changes.
 // %. don't use 1'b1 when 1 can do, same for 0.
 
+`define W 8
+
 `define ALU
 `define SHIFTERS
 
@@ -22,10 +24,10 @@
 `define RSTACKSIZE 0
 
 // just 8 bits for testing
-`define WORD [W-1:0]
+`define WORD [`W-1:0]
 
-`define ZEROES {W{1'b0}}
-`define ONES   {W{1'b1}}
+`define ZEROES {`W{1'b0}}
+`define ONES   {`W{1'b1}}
 
 // OP-code always BYTE
 `define BYTE [7:0]
@@ -43,8 +45,8 @@ module vsiw (
   output wire v  
 );
 
-   // Parameters for Data Width Flex
-   localparam W = 8;
+//   // Parameters for Data Width Flex
+//   localparam W = 8;
 
    // Storage & Wire Aliases (The Background Map)
    reg `WORD pc, t, n, n2, r, r2; // Current regs
@@ -71,21 +73,21 @@ module vsiw (
         `DEC & 7: begin a = t;                b = `ONES;     cin = 0; end 
         `NEG & 7: begin a = ~t;               b = `ZEROES;   cin = 1; end 
 	`INV & 7: begin a = ~t;               b = `ZEROES;   cin = 0; end
-//	`ABS & 7: begin a = t[W-1] ? ~t : t;  b = `ZEROES;   cin = t[W-1]; end
+//	`ABS & 7: begin a = t[`W-1] ? ~t : t;  b = `ZEROES;   cin = t[W-1]; end
 //	`ZRO & 7: begin a = `ZEROES;          b = `ONES;     cin = t? 1: 0; end
       endcase
    end
 
    // Single Shared Adder Instance
-   wire [W:0] sum = a + b + cin;
-   wire `WORD acc = sum[W-1:0];
+   wire [`W:0] sum = a + b + cin;
+   wire `WORD acc = sum[`W-1:0];
    `endif
    
    wire `WORD pc_inc = pc + 1;
 	 
    // Condition Flag on *NOS* as TOS has the jmp value!
    assign z   = !n;
-   assign neg = n[W-1];
+   assign neg = n[`W-1];
    assign c   = 0;
    assign v   = 0;
 
@@ -172,15 +174,18 @@ module vsiw (
 	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: T = acc;
 	   `endif // ALU
 	     
-	   `ifdef SHIFTERS
-	   `ROR:  T = { t[0], t[W-1:1] };
-	   `ROL:  T = { t[W-2:0], t[W-1] };
-	   `ASR:  T = { t[W-1], t[W-1], t[W-2:0] };
 
-	   `SHR:  T = t /  2;
-	   `SHL:  T = t *  2;
-	   `SHR4: T = t / 16;
-	   `SHL4: T = t * 16;
+	   `ifdef SHIFTERS
+
+	   `ROR:  T = { t[0], t[`W-1:1] };
+	   `ROL:  T = { t[`W-2:0], t[`W-1] };
+	   `ASR:  T = { t[`W-1], t[`W-1:1] };
+
+	   `SHR:  T = t >> 1;
+	   `SHL:  T = t << 1;
+	   `SHR4: T = t >> 4;
+	   `SHL4: T = t << 4;
+
 	   `endif // SHIFTERS
 
 	   `AND: T = t & n;
@@ -189,6 +194,7 @@ module vsiw (
 
 	   // on OP! now at lower row +30!
 	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
+//	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // 226
 //	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] };
 
 
@@ -196,7 +202,7 @@ module vsiw (
 	   // READ WRIT
 	   
 	   // + 3 LUT!
-	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; end 
+	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
 	   `TRUE: begin T = ONES;                  end
 	      
 	   // RPOP RCPY FOR  RPUSH
