@@ -234,7 +234,7 @@ module vsiw (
 	   
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; N = n; N2 = n2; sd = SIGNED_HOLD; end 
-	   `TRUE: begin T = ONES; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `TRUE: begin T = ONES;                  N = n; N2 = n2; sd = SIGNED_HOLD; end
 	      
 	   // SIGN
 	   // TRUE
