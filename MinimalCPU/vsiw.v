@@ -229,16 +229,19 @@ module vsiw (
 	   `OR : begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
 	   `XOR: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
 
-	   // AND OR XOR
-
 	   // XXX
 	   // READ WRIT
 	   
+	   // + 3 LUT!
+	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; N = n; N2 = n2; sd = SIGNED_HOLD; end 
+	   `TRUE: begin T = ONES; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	      
 	   // SIGN
 	   // TRUE
 	   
 	   // RPOP RCPY FOR  RPUSH
 	   // JZ   JN   NEXT JSR
+	   
 
            // Catch-all for unallocated opcodes
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end

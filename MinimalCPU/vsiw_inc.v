@@ -4,6 +4,8 @@
 // ===============
 
 // Numbering
+//
+//      (apparently moving xxx to first pos costs +16 LUT!)
 //---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
 //---     8:   read writ nop  dup     tuck inv  rot  rev
