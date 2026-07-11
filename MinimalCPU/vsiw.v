@@ -7,11 +7,7 @@
 // 3. don't use TABs, change indentation, or structure.
 // 4. if instructions conflict, say so an make no changes.
 
-
-// +22 LUT only (negations and wirings)!
 `define ALU
-
-// +29 LUT
 `define SHIFTERS
 
 // "Production"
@@ -66,7 +62,7 @@ module vsiw (
    always @(*) begin
       a = t; b = n; cin = 1'b0;
 
-      case (opcode[2:0]) // I think is enough
+      case (opcode[2:0])
 
 	`ADD & 7: begin a = t;                b = n;         cin = 0; end 
         `SUB & 7: begin a = ~t;               b = n;         cin = 1; end 
@@ -74,7 +70,6 @@ module vsiw (
         `DEC & 7: begin a = t;                b = `ONES;     cin = 0; end 
         `NEG & 7: begin a = ~t;               b = `ZEROES;   cin = 1; end 
 	`INV & 7: begin a = ~t;               b = `ZEROES;   cin = 0; end
-	// These cost more
 //	`ABS & 7: begin a = t[W-1] ? ~t : t;  b = `ZEROES;   cin = t[W-1]; end
 //	`ZRO & 7: begin a = `ZEROES;          b = `ONES;     cin = t? 1: 0; end
 	
@@ -99,7 +94,7 @@ module vsiw (
    // Asynch Read Port: Always top value below our n2
    wire `WORD stack_out = stack[sp];
    
-   // Explicit condition check tracking physical memory drop/spill movements
+   // Condition to spill
    wire       write_sp = (SP > sp);
 
    // Signed Stack Deltas
@@ -125,7 +120,6 @@ module vsiw (
 
    // Combinatorial Data Routing Matrix
    always @(*) begin
-      // Hardwired High-Efficiency Structural Defaults
       T  = n;
       N  = n2;
       N2 = stack_out;
@@ -133,9 +127,12 @@ module vsiw (
 
       if (!is_instr) begin
 
-         // VARIABLE-LENGTH LITERAL PIPELINE PATH
+         // VARIABLE-LENGTH LITERAL PIPELINE
          if (!prefix) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
          else         begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
+
+//      end else begin
+// TODO: this shouldn't make a difference!!!!
       end else if (!pc_bit) begin
 
          // CORE INSTRUCTION SPECIFIC OVERRIDES
@@ -146,14 +143,12 @@ module vsiw (
               if (!drop_bit) begin N = n; N2 = n2; end
            end
 
-           // Row 1: NOP / DROP DUALITY
            // DROP: (n2 nos tos - n2 nos tos)
-           // NOP:  (n2 nos tos - n2 nos)
+	   // NOP:  (n2 nos tos - n2 nos)
            `NOP: begin
               if (!drop_bit) begin T = t; N = n; N2 = n2; end
            end
 
-           // Row 1: DUP / SWAP DUALITY
            // SWAP: (n2 nos tos - n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
            `DUP: begin
@@ -161,7 +156,6 @@ module vsiw (
               else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
            end
 
-           // Row 1: TUCK / OVER DUALITY - THE PROPAGATION PAIR (Polar Reverses)
            // TUCK: (... n2 nos tos - ... n2 tos nos tos)
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
            `TUCK: begin
@@ -171,7 +165,6 @@ module vsiw (
               else          begin T = n; N = t; N2 = n; end
            end
 
-           // Row 1: ROT / NIP DUALITY
            // NIP: (... n2 nos tos - n2 tos)
            // ROT: (n2 nos tos - tos n2 nos)
            `ROT: begin
@@ -180,28 +173,25 @@ module vsiw (
            end
 
 	   `ifdef ALU
-           // Row 2: THE ADDITION OPERATION (+)
-           // ADD.keep: (n2 nos tos - n2 nos tos+nos)
-           // ADD:      (n2 nos tos - n2 tos+nos)
 	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: begin
               T = acc;
 	      if (!drop_bit) begin N = n; N2 = n2; end
            end
 	   `endif // ALU
 	     
-	   `ifdef SHIFTERS // + 29 LUT
+	   `ifdef SHIFTERS
 
-	   `ROR:  begin T = { t[0], t[W-1:1] }; /// + 6 for 3: ROR,ROL,ASR
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	   `ROR:  begin T = { t[0], t[W-1:1] };
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
 	   `ROL:  begin T = { t[W-2:1], t[W-1:0] };
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
 	   `ASR:  begin T = { t[W-1], t[W-1], t[W-2:0] };
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
+	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
 
-	   `SHR:  begin T = t/2;  N = n; N2 = n2; sd = SIGNED_HOLD; end // + 14
-	   `SHL:  begin T = t*2;  N = n; N2 = n2; sd = SIGNED_HOLD; end // + 0!
-	   `SHR4: begin T = t/16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 5
-	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end // + 4
+	   `SHR:  begin T = t/2;  N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `SHL:  begin T = t*2;  N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `SHR4: begin T = t/16; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end
 
 	   // on OP! now at lower row +30!
 	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
@@ -210,7 +200,6 @@ module vsiw (
 
 	   `endif // SHIFTERS
 
-	   // + 13 LUT :-(
 	   `AND: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
 	   `OR : begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
 	   `XOR: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
@@ -222,20 +211,41 @@ module vsiw (
 	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; N = n; N2 = n2; sd = SIGNED_HOLD; end 
 	   `TRUE: begin T = ONES;                  N = n; N2 = n2; sd = SIGNED_HOLD; end
 	      
-	   // SIGN
-	   // TRUE
-	   
 	   // RPOP RCPY FOR  RPUSH
-	   // JZ   JN   NEXT JSR
-	   
 
            // Catch-all for unallocated opcodes
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end
 
          endcase
-      end else begin
-         // Default path when pc_bit is set (Control Flow takes precedence)
-         T = t; N = n; N2 = n2; sd = SIGNED_HOLD;
+
+	 `ifdef PC
+	 if (!pc_bit) begin 
+
+	    case (op)
+	      `RTO : begin end
+	      `RCPY: begin end
+	      `FOR : begin end
+	      `TOR : begin end
+	    endcase
+
+	 end else begin
+	    // Program Control fused
+	    
+	    PC= t;
+
+	    // JZ   JN   NEXT JSR
+	    case (op)
+	      `JZ  : begin end
+	      `JN  : begin end
+	      `NEXT: begin end
+	      `JSR : begin end
+	    endcase
+	 end
+	 `endif // PC
+	 
+      end else begin 
+	 // LOL thsi is so wrong!
+	 T = t; N = n; N2 = n2; sd = SIGNED_HOLD;
       end
 
       SP = sp + { {4{sd[1]}}, sd[0] };

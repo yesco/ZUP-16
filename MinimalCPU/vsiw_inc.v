@@ -52,11 +52,17 @@
 `define OR    5'b10110
 `define XOR   5'b10111
 
-// Row 3: Return Stack & Control Flow (24 to 31)
-`define RPOP  5'b11000
+// Row 3: Return Stack
+`define RTO   5'b11000
 `define RCPY  5'b11001
 `define FOR   5'b11010
-`define RPUSH 5'b11011
+`define TOR   5'b11011
+
+//      PC - value
+`define JZ    5'b11000
+`define JN    5'b11001
+`define NEXT  5'b11010
+`define JSR   5'b11011
 
 //`define REV   5'b11100
 //`define ABS   5'b11101
@@ -106,10 +112,15 @@
 `define iXOR   {"XOR ", {3'b101, `XOR}}
 
 // Gropu 3: Return Stack & Control Structures
-`define iRPOP  {"R>  ", {3'b100, `RPOP}}
+`define iRTO   {"R>  ", {3'b100, `RTO}}
 `define iRCPY  {"RCPY", {3'b100, `RCPY}}
 `define iFOR   {"FOR ", {3'b100, `FOR}}
-`define iRPUSH {">R  ", {3'b100, `RPUSH}}
+`define iTOR   {">R  ", {3'b100, `TOR}}
+
+`define iJZ    {"JZ  ", {3'b110, `JZ}}
+`define iJN    {"JN  ", {3'b110, `JN}}
+`define iNEXT  {"NEXT", {3'b110, `NEXT}}
+`define iCALL  {"CALL", {3'b110, `CALL}}
 
 //`define iREV   {"REV ", {3'b100, `REV}}
 //`define iABS   {"ABS ", {3'b100, `ABS}}
@@ -118,7 +129,7 @@
 `define iTRUE  {"TRUE", {3'b100, `TRUE}}
 
 
-`define iJZ    {"JZ  ", {3'b110, `RPOP}}
-`define iJN    {"JN  ", {3'b110, `RCPY}}
-`define iNEXT  {"NEXT", {3'b110, `FOR}}
-`define iJSR   {"JSR ", {3'b110, `RPUSH}}
+`define iJZ    {"JZ  ", {3'b110, `JZ}}
+`define iJN    {"JN  ", {3'b110, `JN}}
+`define iNEXT  {"NEXT", {3'b110, `NEXT}}
+`define iCALL  {"CALL", {3'b110, `CALL}}
