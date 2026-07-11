@@ -6,6 +6,7 @@
 // 2. don't make temporary "fixed" comments.
 // 3. don't use TABs, change indentation, or structure.
 // 4. if instructions conflict, say so an make no changes.
+// %. don't use 1'b1 when 1 can do, same for 0.
 
 `define ALU
 `define SHIFTERS
@@ -203,11 +204,15 @@ module vsiw (
          endcase
 
 
-	 // Program Control fused
+	 // Any instruction is optionally fused with a pc_bit:
+	 //  0( NORMAL STEP: pc++; R Stack stuff
+	 //  1) PC SETTERS:  Program Control
 	 if (!pc_bit) begin
 
+	    // R stack operations
 	    PC = pc_inc; R = r; R2 = r2; rd = HOLD;
 	    
+	    // OVERRIDES ONLY
 	    case (op)
 	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; rd = DROP; end
 	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;            end
@@ -219,16 +224,17 @@ module vsiw (
 	 end else begin
 
 	    // Usually means return
-	    PC = R; R2 = rstack_out; rd = DROP;
+	    PC = r; R = r2; R2 = rstack_out; rd = DROP;
 
-	    // Overrides
+	    // OVERRIDES ONLY
 	    case (op)
-	      `JZ  : begin R = r;      R2 = r2; rd = HOLD;   if (z)   PC = t;  end
-	      `JN  : begin R = r;      R2 = r2; rd = HOLD;   if (neg) PC = t;  end
-	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH;            PC = t;  end
-	      `NEXT: if (r) begin
-		           R = r - 1;  R2 = r2; rd = HOLD;            PC = r2; end
-	      else begin   R = r2;              rd = POP;                      end
+	      `JZ  : begin R = r;      R2 = r2; rd = HOLD;   if (z)   PC = t;      end
+	      `JN  : begin R = r;      R2 = r2; rd = HOLD;   if (neg) PC = t;      end
+	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH;            PC = t;      end
+	      `NEXT: if (!r) begin
+		           R = r - 1;  R2 = r2; rd = HOLD;            PC = r2;     end
+	             else begin
+                                                rd = DROP;            PC = pc_inc; end
 	    endcase
 	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
@@ -247,8 +253,8 @@ module vsiw (
    // Synch State Update
    always @(posedge clk or negedge rst_n) begin
 
-      if (!rst_n) begin t <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  end
-      else        begin t <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP;
+      if (!rst_n) begin t <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0; end
+      else        begin t <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2;
          if (write_sp) begin  stack[sp + 1] <= n2; end
          if (write_rp) begin rstack[rp + 1] <= r2; end
       end
