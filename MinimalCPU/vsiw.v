@@ -86,7 +86,8 @@ module vsiw (
    assign v   = 0;
 
    // Physical Data Stack Array & Pointer Management
-   reg [4:0]  sp, SP;
+   reg [4:0]  sp, SP, rp, RP;
+   
    reg `WORD  stack [0:`STACKSIZE];
 
    // Asynch Read Port: Always top value below our n2
@@ -96,10 +97,10 @@ module vsiw (
    wire       write_sp = (SP > sp);
 
    // Signed Stack Deltas
-   localparam SIGNED_HOLD = 2'b00;
-   localparam SIGNED_PUSH = 2'b01;
-   localparam SIGNED_DROP = 2'b11;
-   reg [1:0]  sd;
+   localparam HOLD = 2'b00;
+   localparam PUSH = 2'b01;
+   localparam DROP = 2'b11;
+   reg [1:0]  sd, rd;
 
    // Prefix Literal Loading Sequencer Flag
    reg prefix;
@@ -118,19 +119,20 @@ module vsiw (
 
    // Combinatorial Data Routing Matrix
    always @(*) begin
-      sd = SIGNED_HOLD;
+
+      sd = HOLD;
 
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
-         if (!prefix) begin T = {1'b0, op[6:0]}; N = t; N2 = n; sd = SIGNED_PUSH; end
-         else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;               end
+         if (!prefix) begin T = {1'b0, op[6:0]}; N = t; N2 = n; sd = PUSH; end
+         else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;        end
 
       end else begin
 
 	 // Default Result
-	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = SIGNED_DROP; end
-	 else          begin T = t; N = t;  N2 = n2;        sd = SIGNED_HOLD; end
+	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = DROP; end
+	 else          begin T = t; N = t;  N2 = n2;        sd = HOLD; end
 	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
@@ -140,14 +142,14 @@ module vsiw (
            // SWAP: (n2 nos tos - n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
 	   `DUP: begin
-              if (drop_bit) begin T = n; N = t; N2 = n; sd = SIGNED_HOLD; end
-              else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
+              if (drop_bit) begin T = n; N = t; N2 = n; sd = HOLD; end
+              else          begin T = t; N = t; N2 = n; sd = PUSH; end
            end
 
            // TUCK: (... n2 nos tos - ... n2 tos nos tos)
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
            `TUCK: begin
-              sd = SIGNED_PUSH;
+              sd = PUSH;
               if (drop_bit) begin T = t; N = n; N2 = t; end
               else          begin T = n; N = t; N2 = n; end
            end
@@ -195,50 +197,48 @@ module vsiw (
 
          endcase
 
-
 	 `ifdef PC
-	 if (!pc_bit) begin 
 
-	    case (op)
-	      `RTO : begin T  = r; n  = t; n2 = n; sd = STACK_PUSH; end // TODO: rpop
-	      `RCPY: begin T  = r; n  = t; n2 = n; sd = STACK_PUSH; end
-	      `TOR : begin R  = t; R2 = r; end  // TODO: rpush
-	      `FOR : begin         R2 = PC; end // TODO: rpush
+	 // Program Control fused
+	 rd = HOLD;
+
+	 if (pc_bit) begin
+
+	    case (op})
+	      `RTO : begin T  = r; n  = t; n2 = n; sd = PUSH; sr = DROP; end
+	      `RCPY: begin T  = r; n  = t; n2 = n; sd = PUSH;            end
+	      `TOR : begin R  = t; R2 = r;                    sr = PUSH; end
+	      `FOR : begin         R2 = PC;                   sr = PUSH; end
 	    endcase
-
+	    
 	 end else begin
-	    // Program Control fused
-	    PC= pc+1;
 
 	    // JZ   JN   NEXT JSR
 	    case (op)
 	      `JZ  : if (!t)  PC = t;
 	      `JN  : if (neg) PC = t;
-	      `NEXT: begin    PC = R2; end;
-	      `JSR : begin    PC = t;  end // TODO: rpush pc
+	      `NEXT: begin    PC = R2;         rd = PUSH; end
+	      `JSR : begin    PC = t; R2 = PC; rd = PUSH; end
 	    endcase
+
 	 end
 	 `endif // PC
 	 
-
-	 if (sd == SIGNED_DROP) N2 <= stack_out;
+	 if (sd == DROP) N2 = stack_out;
 
       end
 
-
+      // Signed Adjustment
       SP = sp + { {4{sd[1]}}, sd[0] };
-      
-      // Calculate the next execution state destination for Program Counter
-      if (is_instr && pc_bit) PC = t;
-      else                    PC = pc + 1;
+      RP = rp + { {4{rd[1]}}, rd[0] };
+
    end
 
-   // Synch State Boundaries Allocation Block
+   // Synch State Update
    always @(posedge clk or negedge rst_n) begin
 
-      if (!rst_n) begin t <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  end
-      // Commit
-      else        begin t <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC;
+      if (!rst_n) begin t <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  end
+      else        begin t <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP;
          if (write_sp) begin stack[sp + 5'd1] <= n2; end
       end
 
