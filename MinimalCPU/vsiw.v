@@ -47,12 +47,18 @@ module vsiw (
   input wire  `BYTE op,
 
   `ifdef MEM
-  output reg  mem_en,
-  output reg  mem_we,
-  output reg  `WORD mem_addr,
-  output reg  `WORD mem_wdata,
-  input wire  `WORD mem_rdata,
-  `endif // MEM	     
+  // Port A: Dedicated to Instruction Fetch (Read-Only)
+  output reg       mem_en_a,
+  output reg `WORD mem_addr_a,
+  input wire `BYTE mem_rdata_a, // Instruction stream matches BYTE width
+
+  // Port B: Dedicated to Data Operations (Read/Write)
+  output reg       mem_en_b,
+  output reg       mem_we_b,
+  output reg `WORD mem_addr_b,
+  output reg `WORD mem_wdata_b,
+  input wire `WORD mem_rdata_b,
+  `endif // MEM
 
   output wire c,
   output wire z, 
@@ -154,12 +160,17 @@ module vsiw (
       sd = HOLD;
 
       `ifdef MEM
-      mem_en = 0;
-      mem_we = 0;
-      mem_addr = t;
-      mem_wdata = t;
+      // Port A Defaults: Instruction Fetch Pipeline
+      mem_en_a   = 1;
+      mem_addr_a = pc;
+
+      // Port B Defaults: Data Stack Memory Engine
+      mem_en_b    = 0;
+      mem_we_b    = 0;
+      mem_addr_b  = t;
+      mem_wdata_b = t;
       `endif // MEM
-      
+
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
@@ -228,35 +239,54 @@ module vsiw (
 
 	   // on OP! now at lower row +30!
 
+	   `ifdef REVERSE
 	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
 //	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // +7 LUT
 //	   `REV: begin: rev_block integer i; for(i=0; i<`W; i=i+1) T[i] = t[`W-1-i]; end // +66 LUT!!!!
-	   `ifdef REVERSE
 	   `REV: T = reverse(t); // +5 LUT
 	   `endif // REVERSE
 	   
-	   `ifdef MEM
-	   `READ: begin
-              mem_en = 1;
-              mem_addr = t;
-              T = mem_rdata;
-           end
 
-           `WRIT: begin
-              mem_en = 1;
-              mem_we = 1;
-              mem_addr = n;
-              mem_wdata = t;
-              if (drop_bit) begin T = n2; N = stack_out; sd = DROP; end
-              else          begin T = n;  N = n2;        sd = DROP; end
-           end
-	   `endif // MEM
-	   
+
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
 	   `TRUE: begin T = ONES;                  end
 	      
 	   // RPOP RCPY FOR  RPUSH
+
+
+
+	   // MEMORY INTERFACE
+
+	   // READ.keep  ( ... n2 addr - ... n2 addr val ) 
+ 	   // READ.drop: ( ... n2 addr -      ... n2 val ) == "FORTH"
+	   // TODO: consider replacing addr with addr+1 ! (and maybe revere arg as n++ cannot?)
+	   `ifdef MEM
+	   `READ: begin
+              mem_en_b   = 1;
+              mem_addr_b = t;
+	      // TODO: is this going to get here in time?
+	      // (read intruction/decode/this logic/bram read)
+	      // if vonNeuman then we have 2 memory sequences
+	      // BUG: ? isn;t it that the read data arrives at next CYCLE?
+              T          = mem_rdata_b;
+              if (drop_bit) begin N = n2; N2 = stack_out; sd = HOLD; end
+              else          begin N = n;  N2 = n2;        sd = PUSH; end
+           end
+
+	   // WRIT.keep  ( ... n2 addr val - ... n2 addr val ) 
+	   // WRIT.drop: ( ... n2 addr val -     ... n2 addr ) == "FORTH" (ok need one user drop)
+	   // TODO: consider replacing addr with addr+1 ! (and maybe revere arg as n++ cannot?)
+	   // TODO: can we reuse he ALU for this!
+	   `WRIT: begin 
+              mem_en_b    = 1;
+              mem_we_b    = 1;
+              mem_addr_b  = n;
+              mem_wdata_b = t;
+              if (drop_bit) begin T = n; N = n2; N2 = stack_out; end
+              else          begin T = t; N = n;  N2 = n2;        end
+           end
+	   `endif // MEM
 
          endcase
 
