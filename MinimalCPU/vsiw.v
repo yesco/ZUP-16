@@ -7,6 +7,9 @@
 // 4. if instructions conflict, say so an make no changes.
 
 
+// // +22 LUT only (negations and wirings)!
+`define ALU
+
 // "Production"
 //`define STACKSIZE 31
 
@@ -17,10 +20,15 @@
 `define STACKSIZE 0
 
 // just 8 bits for testing
-`define WORD [7:0]
+`define WORD [W-1:0]
+
+`define ZEROES {W{1'b0}}
+`define ONES   {W{1'b1}}
 
 // OP-code always BYTE
 `define BYTE [7:0]
+
+`include "vsiw_inc.v"
 
 module vsiw (
   input wire       clk, 
@@ -33,6 +41,9 @@ module vsiw (
   output wire v  
 );
 
+   // Parameters for Data Width Flex
+   localparam W = 8;
+
    // Storage & Wire Aliases (The Background Map)
    reg `WORD pc, t, n, n2; // Current regs
    reg `WORD PC, T, N, N2; // Next
@@ -43,13 +54,36 @@ module vsiw (
    wire drop_bit = op[5];
    wire [4:0] opcode = op[4:0];
 
-   // Hardware Accumulator Path
-   wire [8:0] sum = t + n;
-   wire [7:0] acc = sum[7:0];
+   // Shared Multiplexed Arithmetic/Shift Core Logic
+   reg `WORD a, b;
+   reg       cin;
 
+   `ifdef ALU
+   always @(*) begin
+      a = t; b = n; cin = 1'b0;
+//      case (opcode) // I think is enough // +30 LUT!!!!
+      case (opcode[2:0]) // I think is enough
+//	default: begin a = t;                b = n;         cin = 1'b0; end // -5 LUT!
+	`ADD:    begin a = t;                b = n;         cin = 1'b0; end // +5 LUT
+//        `INC:    begin a = t;                b = 1'b1;      cin = 1'b0; end // same
+        `INC:    begin a = t;                b = `ZEROES;   cin = 1'b1; end
+        `DEC:    begin a = t;                b = `ONES;     cin = 1'b0; end
+        `SUB:    begin a = ~t;               b = n;         cin = 1'b1; end
+	`INV:    begin a = ~t;               b = `ZEROES;   cin = 1'b0; end
+        `NEG:    begin a = ~t;               b = `ZEROES;   cin = 1'b1; end
+      endcase
+   end
+   `endif // ALU
+
+   `ifdef ALU
+   // Single Shared Adder Instance
+   wire [W:0] sum = a + b + cin;
+   wire `WORD acc = sum[W-1:0];
+   `endif
+   
    // Condition Flag Mapping based entirely on current 't' (TOS)
-   assign z   = (t == 8'b0);
-   assign neg = t[7];
+   assign z   = (t == {W{1'b0}});
+   assign neg = t[W-1];
    assign c   = 0;
    assign v   = 0;
 
@@ -101,17 +135,23 @@ module vsiw (
 
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
+           // Row 0: SHL
+           `SHL: begin
+              T = acc;
+              if (!drop_bit) begin N = n; N2 = n2; end
+           end
+
            // Row 1: NOP / DROP DUALITY
            // DROP: (n2 nos tos - n2 nos tos)
            // NOP:  (n2 nos tos - n2 nos)
-           5'b01010: begin
+           `NOP: begin
               if (!drop_bit) begin T = t; N = n; N2 = n2; end
            end
 
            // Row 1: DUP / SWAP DUALITY
            // SWAP: (n2 nos tos - n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
-           5'b01011: begin
+           `DUP: begin
               if (drop_bit) begin        N = t; N2 = n; sd = SIGNED_HOLD; end
               else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
            end
@@ -119,7 +159,7 @@ module vsiw (
            // Row 1: TUCK / OVER DUALITY - THE PROPAGATION PAIR (Polar Reverses)
            // TUCK: (... n2 nos tos - ... n2 tos nos tos)
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
-           5'b01100: begin
+           `TUCK: begin
               sd = SIGNED_PUSH;
 
               if (drop_bit) begin T = t; N = n; N2 = t; end
@@ -129,19 +169,27 @@ module vsiw (
            // Row 1: ROT / NIP DUALITY
            // NIP: (... n2 nos tos - n2 tos)
            // ROT: (n2 nos tos - tos n2 nos)
-           5'b01101: begin
-              if (drop_bit) begin T = t;                end
-              else begin                 N = n2;N2 = t; end
+           `ROT: begin
+              if (drop_bit) begin T = t;                 end
+              else begin                 N = n2; N2 = t; end
            end
 
+	   `ifdef ALU
            // Row 2: THE ADDITION OPERATION (+)
            // ADD.keep: (n2 nos tos - n2 nos tos+nos)
            // ADD:      (n2 nos tos - n2 tos+nos)
-           5'b10000: begin
+	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: begin
               T = acc;
-
-              if (!drop_bit) begin N  = n; N2 = n2; end
+	      if (!drop_bit) begin N = n; N2 = n2; end
            end
+	   `endif // ALU
+	     
+//        `SHL:    begin a = {t[W-2:0], 1'b0}; b = `ZEROES;   cin = 1'b0; end // + 27 LUT
+//        `SHL:    begin a = t;                b = t;         cin = 1'b0; end // + 14 LUT
+
+//	   `SHL: begin 
+
+
 
            // Catch-all for unallocated opcodes
            default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end

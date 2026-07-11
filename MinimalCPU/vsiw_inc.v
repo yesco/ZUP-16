@@ -6,7 +6,7 @@
 // Numbering
 //---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
-//---     8:   inv  rev  nop  dup     tuck rot  read writ
+//---     8:   read writ nop  dup     tuck rot  inv  rev
 //    32+ 8:             drop swap    over nip  
 
 //---    16:   +=   -=   inc  dec     neg      
@@ -29,14 +29,14 @@
 `define SHL4  5'b00111
 
 // Row 1: Pure Stack Manipulators (8 to 15)
-`define INV   5'b01000
-`define REV   5'b01001
+`define READ  5'b01000
+`define WRIT  5'b01001
 `define NOP   5'b01010
 `define DUP   5'b01011
 `define TUCK  5'b01100
 `define ROT   5'b01101
-`define READ  5'b01110
-`define WRIT  5'b01111
+`define INV   5'b01110
+`define REV   5'b01111
 
 // Row 2: Arithmetic & Logical Core (16 to 23)
 `define ADD   5'b10000
@@ -72,8 +72,8 @@
 `define iSHL4  {"SHL4", {3'b100, `SHL4}}
 
 // Row 1: Stack Primitives &  Bits & IO
-`define iINV   {"INV ", {3'b100, `INV}}
-`define iREV   {"REV ", {3'b100, `REV}}
+`define iREAD  {"READ", {3'b100, `READ}}
+`define iWRIT  {"WRIT", {3'b100, `WRIT}}
 
 `define iNOP   {"NOP ", {3'b100, `NOP}}
 `define iDROP  {"DROP", {3'b101, `NOP}}
@@ -84,8 +84,8 @@
 `define iROT   {"ROT ", {3'b100, `ROT}}
 `define iNIP   {"NIP ", {3'b101, `ROT}}
 
-`define iREAD  {"READ", {3'b100, `READ}}
-`define iWRIT  {"WRIT", {3'b100, `WRIT}}
+`define iINV   {"INV ", {3'b100, `INV}}
+`define iREV   {"REV ", {3'b100, `REV}}
 
 // Row 2: ALU primitives
 `define iADDEQ {"+=  ", {3'b100, `ADD}}
