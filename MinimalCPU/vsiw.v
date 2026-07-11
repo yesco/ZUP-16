@@ -79,6 +79,8 @@ module vsiw (
    wire `WORD acc = sum[W-1:0];
    `endif
    
+   wire `WORD pc_inc = pc + 1;
+	 
    // Condition Flag Mapping based entirely on current 't' (TOS)
    assign z   = (t == {W{1'b0}});
    assign neg = t[W-1];
@@ -167,7 +169,7 @@ module vsiw (
 	     
 	   `ifdef SHIFTERS
 	   `ROR:  T = { t[0], t[W-1:1] };
-	   `ROL:  T = { t[W-2:1], t[W-1:0] };
+	   `ROL:  T = { t[W-2:0], t[W-1] };
 	   `ASR:  T = { t[W-1], t[W-1], t[W-2:0] };
 
 	   `SHR:  T = t /  2;
@@ -178,8 +180,8 @@ module vsiw (
 	   `endif // SHIFTERS
 
 	   `AND: T = t & n;
-	   `OR : T = t & n;
-	   `XOR: T = t & n;
+	   `OR : T = t | n;
+	   `XOR: T = t ^ n;
 
 	   // on OP! now at lower row +30!
 	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
@@ -197,18 +199,18 @@ module vsiw (
 
          endcase
 
-	 `ifdef PC
 
 	 // Program Control fused
 	 rd = HOLD;
+	 PC = pc_inc;
 
 	 if (pc_bit) begin
 
-	    case (op})
+	    case (op)
 	      `RTO : begin T  = r; n  = t; n2 = n; sd = PUSH; sr = DROP; end
 	      `RCPY: begin T  = r; n  = t; n2 = n; sd = PUSH;            end
 	      `TOR : begin R  = t; R2 = r;                    sr = PUSH; end
-	      `FOR : begin         R2 = PC;                   sr = PUSH; end
+	      `FOR : begin         R2 = pc_inc;               sr = PUSH; end
 	    endcase
 	    
 	 end else begin
@@ -217,13 +219,13 @@ module vsiw (
 	    case (op)
 	      `JZ  : if (!t)  PC = t;
 	      `JN  : if (neg) PC = t;
-	      `NEXT: begin    PC = R2;         rd = PUSH; end
-	      `JSR : begin    PC = t; R2 = PC; rd = PUSH; end
+	      `NEXT: begin    PC = R2;             rd = PUSH; end
+	      `JSR : begin    PC = t; R2 = pc_inc; rd = PUSH; end
 	    endcase
 
-	 end
-	 `endif // PC
+	 end // PC
 	 
+
 	 if (sd == DROP) N2 = stack_out;
 
       end
