@@ -196,32 +196,33 @@ module vsiw (
          endcase
 
 
-	 if (sd == SIGNED_DROP) N2 <= stack_out;
-
 	 `ifdef PC
 	 if (!pc_bit) begin 
 
 	    case (op)
-	      `RTO : begin end
-	      `RCPY: begin end
-	      `FOR : begin end
-	      `TOR : begin end
+	      `RTO : begin T  = r; n  = t; n2 = n; sd = STACK_PUSH; end // TODO: rpop
+	      `RCPY: begin T  = r; n  = t; n2 = n; sd = STACK_PUSH; end
+	      `TOR : begin R  = t; R2 = r; end  // TODO: rpush
+	      `FOR : begin         R2 = PC; end // TODO: rpush
 	    endcase
 
 	 end else begin
 	    // Program Control fused
-	    PC= t;
+	    PC= pc+1;
 
 	    // JZ   JN   NEXT JSR
 	    case (op)
-	      `JZ  : begin end
-	      `JN  : begin end
-	      `NEXT: begin end
-	      `JSR : begin end
+	      `JZ  : if (!t)  PC = t;
+	      `JN  : if (neg) PC = t;
+	      `NEXT: begin    PC = R2; end;
+	      `JSR : begin    PC = t;  end // TODO: rpush pc
 	    endcase
 	 end
 	 `endif // PC
 	 
+
+	 if (sd == SIGNED_DROP) N2 <= stack_out;
+
       end
 
 
