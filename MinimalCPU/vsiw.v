@@ -63,7 +63,6 @@ module vsiw (
       a = t; b = n; cin = 1'b0;
 
       case (opcode[2:0])
-
 	`ADD & 7: begin a = t;                b = n;         cin = 0; end 
         `SUB & 7: begin a = ~t;               b = n;         cin = 1; end 
         `INC & 7: begin a = t;                b = `ZEROES;   cin = 1; end 
@@ -72,7 +71,6 @@ module vsiw (
 	`INV & 7: begin a = ~t;               b = `ZEROES;   cin = 0; end
 //	`ABS & 7: begin a = t[W-1] ? ~t : t;  b = `ZEROES;   cin = t[W-1]; end
 //	`ZRO & 7: begin a = `ZEROES;          b = `ONES;     cin = t? 1: 0; end
-	
       endcase
    end
 
@@ -120,39 +118,29 @@ module vsiw (
 
    // Combinatorial Data Routing Matrix
    always @(*) begin
-      T  = n;
-      N  = n2;
-      N2 = stack_out;
-      sd = drop_bit ? SIGNED_DROP : SIGNED_HOLD;
+      sd = SIGNED_HOLD;
 
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
-         if (!prefix) begin T = {1'b0, op[6:0]};    N = t; N2 = n;  sd = SIGNED_PUSH; end
-         else         begin T = (t << 7) | op[6:0]; N = n; N2 = n2; sd = SIGNED_HOLD; end
+         if (!prefix) begin T = {1'b0, op[6:0]}; N = t; N2 = n; sd = SIGNED_PUSH; end
+         else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;               end
 
-//      end else begin
-// TODO: this shouldn't make a difference!!!!
-      end else if (!pc_bit) begin
+      end else begin
 
+	 // Default Result
+	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = SIGNED_DROP; end
+	 else          begin T = t; N = t;  N2 = n2;        sd = SIGNED_HOLD; end
+	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
-           // Row 0: SHL
-           `SHL: begin
-              T = acc;
-              if (!drop_bit) begin N = n; N2 = n2; end
-           end
-
            // DROP: (n2 nos tos - n2 nos tos)
 	   // NOP:  (n2 nos tos - n2 nos)
-           `NOP: begin
-              if (!drop_bit) begin T = t; N = n; N2 = n2; end
-           end
 
            // SWAP: (n2 nos tos - n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
-           `DUP: begin
-              if (drop_bit) begin        N = t; N2 = n; sd = SIGNED_HOLD; end
+	   `DUP: begin
+              if (drop_bit) begin T = n; N = t; N2 = n; sd = SIGNED_HOLD; end
               else          begin T = t; N = t; N2 = n; sd = SIGNED_PUSH; end
            end
 
@@ -160,7 +148,6 @@ module vsiw (
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
            `TUCK: begin
               sd = SIGNED_PUSH;
-
               if (drop_bit) begin T = t; N = n; N2 = t; end
               else          begin T = n; N = t; N2 = n; end
            end
@@ -168,55 +155,48 @@ module vsiw (
            // NIP: (... n2 nos tos - n2 tos)
            // ROT: (n2 nos tos - tos n2 nos)
            `ROT: begin
-              if (drop_bit) begin T = t;                 end
-              else begin                 N = n2; N2 = t; end
+              if (drop_bit) begin T = t; N = n2;         end
+              else begin          T = n; N = n2; N2 = t; end
            end
 
 	   `ifdef ALU
-	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: begin
-              T = acc;
-	      if (!drop_bit) begin N = n; N2 = n2; end
-           end
+	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: T = acc;
 	   `endif // ALU
 	     
 	   `ifdef SHIFTERS
+	   `ROR:  T = { t[0], t[W-1:1] };
+	   `ROL:  T = { t[W-2:1], t[W-1:0] };
+	   `ASR:  T = { t[W-1], t[W-1], t[W-2:0] };
 
-	   `ROR:  begin T = { t[0], t[W-1:1] };
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `ROL:  begin T = { t[W-2:1], t[W-1:0] };
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `ASR:  begin T = { t[W-1], t[W-1], t[W-2:0] };
-	                          N = n; N2 = n2; sd = SIGNED_HOLD; end
-
-	   `SHR:  begin T = t/2;  N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `SHL:  begin T = t*2;  N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `SHR4: begin T = t/16; N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `SHL4: begin T = t*16; N = n; N2 = n2; sd = SIGNED_HOLD; end
-
-	   // on OP! now at lower row +30!
-	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
-//	   `REV:  begin T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] }; // -4 LUT!!!
-//                                  N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `SHR:  T = t /  2;
+	   `SHL:  T = t *  2;
+	   `SHR4: T = t / 16;
+	   `SHL4: T = t * 16;
 
 	   `endif // SHIFTERS
 
-	   `AND: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `OR : begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
-	   `XOR: begin T = t & n; N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `AND: T = t & n;
+	   `OR : T = t & n;
+	   `XOR: T = t & n;
+
+	   // on OP! now at lower row +30!
+	   // +8 LUT if next to INV!!!! TODO: can we force use of muxes to get it cheaper?
+//	   `REV:  T = { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] };
+
 
 	   // XXX
 	   // READ WRIT
 	   
 	   // + 3 LUT!
-	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; N = n; N2 = n2; sd = SIGNED_HOLD; end 
-	   `TRUE: begin T = ONES;                  N = n; N2 = n2; sd = SIGNED_HOLD; end
+	   `SIGN: begin T = { !t[W-1], t[W-2:0] }; end 
+	   `TRUE: begin T = ONES;                  end
 	      
 	   // RPOP RCPY FOR  RPUSH
 
-           // Catch-all for unallocated opcodes
-           default: begin T = t; N = n; N2 = n2; sd = SIGNED_HOLD; end
-
          endcase
+
+
+	 if (sd == SIGNED_DROP) N2 <= stack_out;
 
 	 `ifdef PC
 	 if (!pc_bit) begin 
@@ -230,7 +210,6 @@ module vsiw (
 
 	 end else begin
 	    // Program Control fused
-	    
 	    PC= t;
 
 	    // JZ   JN   NEXT JSR
@@ -243,10 +222,8 @@ module vsiw (
 	 end
 	 `endif // PC
 	 
-      end else begin 
-	 // LOL thsi is so wrong!
-	 T = t; N = n; N2 = n2; sd = SIGNED_HOLD;
       end
+
 
       SP = sp + { {4{sd[1]}}, sd[0] };
       

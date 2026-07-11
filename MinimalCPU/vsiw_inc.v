@@ -2,6 +2,23 @@
 
 // 32 instructions
 // ===============
+// All instructions basically exists in 4 variants:
+
+// PCbit DROPbit  DESCRIPTION
+//   0     0      keep value
+//   0     1      drop one value
+//   1     x      do same but at same time do RETURN
+
+// Specific stack instruction behave different:
+//   0     x      dup  / swap
+//   0     x      tuck / over
+//   0     x      rot  / nip
+
+// Return stacuk (R) instructions change behavior
+//   x     -      r>    / jz
+//   x     -      rcopy / jn 
+//   x     -      for   / next
+//   x     -      >r    / call
 
 // Numbering
 //
@@ -100,9 +117,10 @@
 `define iZERO  {"ZERO", {3'b100, `ZRO}}
 
 // Row 2: ALU primitives
-`define iADDEQ {"+=  ", {3'b100, `ADD}}
+`define kADD   {"+=  ", {3'b100, `ADD}}
+`define kSUB   {"-=  ", {3'b100, `SUB}}
+
 `define iADD   {"ADD ", {3'b101, `ADD}}
-`define iSUBEQ {"-=  ", {3'b100, `SUB}}
 `define iSUB   {"SUB ", {3'b101, `SUB}}
 `define iINC   {"INC ", {3'b100, `INC}}
 `define iDEC   {"DEC ", {3'b100, `DEC}}
@@ -111,16 +129,18 @@
 `define iOR    {"OR  ", {3'b101, `OR}}
 `define iXOR   {"XOR ", {3'b101, `XOR}}
 
-// Gropu 3: Return Stack & Control Structures
+// Group 3: Return Stack & Control Structures
+
 `define iRTO   {"R>  ", {3'b100, `RTO}}
 `define iRCPY  {"RCPY", {3'b100, `RCPY}}
 `define iFOR   {"FOR ", {3'b100, `FOR}}
-`define iTOR   {">R  ", {3'b100, `TOR}}
+`define iTOR   {">R  ", {3'b101, `TOR}}
 
-`define iJZ    {"JZ  ", {3'b110, `JZ}}
-`define iJN    {"JN  ", {3'b110, `JN}}
+
+`define iJZ    {"JZ  ", {3'b111, `JZ}}
+`define iJN    {"JN  ", {3'b111, `JN}}
 `define iNEXT  {"NEXT", {3'b110, `NEXT}}
-`define iCALL  {"CALL", {3'b110, `CALL}}
+`define iCALL  {"CALL", {3'b111, `CALL}}
 
 //`define iREV   {"REV ", {3'b100, `REV}}
 //`define iABS   {"ABS ", {3'b100, `ABS}}
@@ -128,8 +148,7 @@
 `define iSIGN  {"SIGN", {3'b100, `SIGN}}
 `define iTRUE  {"TRUE", {3'b100, `TRUE}}
 
-
-`define iJZ    {"JZ  ", {3'b110, `JZ}}
-`define iJN    {"JN  ", {3'b110, `JN}}
-`define iNEXT  {"NEXT", {3'b110, `NEXT}}
-`define iCALL  {"CALL", {3'b110, `CALL}}
+`define kJZ    {"JZ  ", {3'b110, `JZ}}
+`define kJN    {"JN  ", {3'b110, `JN}}
+`define dNEXT  {"NEXT", {3'b111, `NEXT}}
+`define kCALL  {"CALL", {3'b110, `CALL}}
