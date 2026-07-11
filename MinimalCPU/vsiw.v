@@ -141,33 +141,35 @@ module vsiw (
 
 	 // Default Result
 	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = DROP; end
-	 else          begin T = t; N = t;  N2 = n2;        sd = HOLD; end
+	 else          begin T = t; N = n;  N2 = n2;        sd = HOLD; end
 	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
            // DROP: (n2 nos tos - n2 nos tos)
 	   // NOP:  (n2 nos tos - n2 nos)
-
-           // SWAP: (n2 nos tos - n2 tos nos)
+	   // - no code needed!
+	   
+           // SWAP: (n2 nos tos - ... n2 tos nos)
            // DUP:  (n2 nos tos - n2 nos tos tos)
 	   `DUP: begin
-              if (drop_bit) begin T = n; N = t; N2 = n; sd = HOLD; end
-              else          begin T = t; N = t; N2 = n; sd = PUSH; end
+              if (drop_bit) begin T = n; N = t; N2 = n2; sd = HOLD; end // SWAP
+              else          begin T = t; N = t; N2 = n;  sd = PUSH; end // DUP
            end
 
-           // TUCK: (... n2 nos tos - ... n2 tos nos tos)
            // OVER: (... n2 nos tos - ... n2 nos tos nos)
-           `TUCK: begin
+           // TUCK: (... n2 nos tos - ... n2 tos nos tos)
+           `OVER: begin
               sd = PUSH;
-              if (drop_bit) begin T = t; N = n; N2 = t; end
-              else          begin T = n; N = t; N2 = n; end
+              if (drop_bit) begin T = n; N = t; N2 = n; end // OVER
+              else          begin T = t; N = n; N2 = t; end // TUCK
            end
 
-           // NIP: (... n2 nos tos - n2 tos)
-           // ROT: (n2 nos tos - tos n2 nos)
+           // NIP: (... n2 nos tos - ... n2 tos)
+           // ROT: (n2 nos tos     - tos n2 nos)
            `ROT: begin
-              if (drop_bit) begin T = t; N = n2;         end
-              else begin          T = n; N = n2; N2 = t; end
+	      N = n2; 
+              if (drop_bit) begin T = t; N2 = stack_out; end
+              else begin          T = n; N2 = t;         end
            end
 
 	   `ifdef ALU

@@ -25,8 +25,8 @@
 //      (apparently moving xxx to first pos costs +16 LUT!)
 //---     0:   ror  rol  asr  xxx     shr  shl  shr4 shl4
 
-//---     8:   read writ nop  dup     tuck rot  inv  zero
-//    32+ 8:             drop swap    over nip  
+//---     8:   read writ nop  dup     over rot  inv  zero
+//    32+ 8:             drop swap    tuck nip  
 
 //---    16:   +=   -=   inc  dec     neg      
 //    32+16:   add  sub                    and  or   xor
@@ -52,7 +52,11 @@
 `define WRIT  5'b01001
 `define NOP   5'b01010
 `define DUP   5'b01011
+`define OVER  5'b01100
+
+// TODO: remove?
 `define TUCK  5'b01100
+
 `define ROT   5'b01101
 `define INV   5'b01110
 
@@ -108,8 +112,8 @@
 `define iDROP  {"DROP", {3'b101, `NOP}}
 `define iDUP   {"DUP ", {3'b100, `DUP}}
 `define iSWAP  {"SWAP", {3'b101, `DUP}}
-`define iTUCK  {"TUCK", {3'b101, `TUCK}}
-`define iOVER  {"OVER", {3'b100, `TUCK}}
+`define iTUCK  {"TUCK", {3'b100, `OVER}}
+`define iOVER  {"OVER", {3'b101, `OVER}}
 `define iROT   {"ROT ", {3'b100, `ROT}}
 `define iNIP   {"NIP ", {3'b101, `ROT}}
 
