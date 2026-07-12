@@ -1,0 +1,9 @@
+# counts LOC (lines of code)
+# excluding:
+# - // only comment lines
+# - empty and lines with no ; ,
+# + but do count: "case" "endcase" "module" "endmodule" "if"
+# - ignoring "end" "else"
+cat vsiw.v | grep -Pv '^\s*//' | grep  -P '[;,icm]' | wc
+cat vsiw.v | grep -Pv '^\s*//' | grep -vP '[;,icm]' > .LOC.ignored
+
