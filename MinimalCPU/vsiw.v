@@ -16,7 +16,7 @@
 
 // 211 -> 317 (- 317 211) = +106
 // 208 -> 447 (- 447 208) = +239
-//`define MEM // + 106 LUT! not including memory!
+`define MEM // + 106 LUT! not including memory!
 
 `define SHIFTERS // -1 LUT!
 //`define ROTATIONS // + 10 LUT
@@ -341,7 +341,7 @@ module vsiw (
 	 
 	 // Refill
 	 if (sd == DROP) N2 =  stack_out;
-	 if (rd == DROP) R2 = rstack_out;
+//       if (rd == DROP) R2 = rstack_out;
 	 // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447
 
       end
