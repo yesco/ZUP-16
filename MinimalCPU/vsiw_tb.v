@@ -58,7 +58,12 @@ module mini8_tb;
              .mem_rdata_b(mem_rdata_b_reg)
              );
 
-   always #10 clk = ~clk;
+//   always #10 clk = ~clk;
+
+   always #7 clk = ~clk;
+
+// TODO: shorter works better for FOR...NEXT loop!
+//   always #5 clk = ~clk;
 
    reg [23:0] arg;
 
@@ -92,6 +97,7 @@ module mini8_tb;
  `define iADC `iADD
 `endif
       
+`ifdef FISH
       `PROM(7);        
       `PROM(`iNOP);
       `PROM(5);        
@@ -164,15 +170,57 @@ module mini8_tb;
       `PROM(`iDROP);
       `PROM(`iDROP);
       `PROM(`iDROP);
+`endif
+
+      `PROM(8'h42);
+      `PROM(`iNOP);
       
+
+      `PROM(17);
+      `PROM(`iNOP);
+      `PROM(`iTOR); // BUG: need two!!!
+
+      `PROM(`iFOR);
+      `PROM(`iNEXT);
+      `PROM(`iNOP); 
+      `PROM(`iNOP); 
+      `PROM(`iNOP); 
+      `PROM(`iNOP); 
+      
+      `PROM(`iDROP);
+
+      // ==========================================
+      // --- COUNTDOWN LOOP WITH DYNAMIC LABEL ---
+      // ==========================================
+      `PROM(9);         // TOS = 3 (Our loop counter)
+      `PROM(`iNOP);
+      
+      // Capture the exact memory address dynamically right here
+      
+      begin: loop
+	 integer loop_start;
+
+	 `PROM(`iNOP);
+
+	 loop_start = wraddr;
+
+	 `PROM(`iDEC);
+
+	 `PROM(loop_start);  // Load the dynamically captured loop start address
+	 `PROM(`iJPOS);      // Fused jump if counter == 0
+
+      end
+      `PROM(`iDROP); // Clean up counter if loop falls through
+
+
       
 `ifdef DSTACK
       $display("-----------------------------------------------------------");
       $display(" TIME  | PC | OP | Z C N V | -5 -4 -3 | N2 N  T  | R  R2");
       $display("-----------------------------------------------------------");
       
-      $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h | %02h %02h %02h | %02h %02h",
-               $time, cpu.pc, mnemonic, cpu.z, cpu.c, cpu.neg, cpu.v,
+      $monitor("%6d | %02h |%s %b| %b %b %b %b | %02h %02h %02h | %02h %02h %02h | %02h %02h",
+               $time, cpu.pc, mnemonic, cpu.op, cpu.z, cpu.c, cpu.neg, cpu.v,
                S5, S4, S3, cpu.n2, cpu.n, cpu.t,
 	       cpu.r, cpu.r2);
 
@@ -191,7 +239,7 @@ module mini8_tb;
       #25;
       rst_n = 1; 
 
-      #2000;
+      #3000;
       $display("--------------------------------------------");
       $finish; 
    end

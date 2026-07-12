@@ -178,7 +178,7 @@ module vsiw (
       rd = HOLD;
 
       // Global default calculates the next sequential step address
-      PC = pc_inc;
+//      PC = pc_inc;
 
       `ifdef MEM
       // Port A Defaults: Instruction Fetch Pipeline
@@ -200,6 +200,8 @@ module vsiw (
          // VARIABLE-LENGTH LITERAL PIPELINE
          if (!prefix) begin T = op;                 N = t; N2 = n; sd = PUSH; end
          else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;           end
+	 
+	 PC = pc_inc;
 	 
       end else begin
 
@@ -319,12 +321,11 @@ module vsiw (
 	    // Normal instructions & R stack ops
 	    PC = pc_inc; R = r; R2 = r2; rd = HOLD;
 	    
-	    // OVERRIDES
-	    case (op)
-	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; R2= rstack_out; rd = DROP; end
-	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;                            end
-	      `TOR : begin R  = t; R2 = r;                                    rd = PUSH; end
-	      `FOR : begin         R2 = pc_inc;                               rd = PUSH; end
+	    case (opcode)
+	      `RTO : begin T  = r; N  = t; N2 = n; R2= rstack_out; rd = DROP; end
+	      `RCPY: begin T  = r; N  = t; N2 = n;                            end
+	      `TOR : begin R  = t; R2 = r;                         rd = PUSH; end
+	      `FOR : begin         R2 = pc_inc;                    rd = PUSH; end
 	    endcase
 	    // FOR: keep R inserts pc_inc into R2 and push r2 down
 	    
@@ -335,12 +336,13 @@ module vsiw (
 
 	    // OVERRIDES
 	    // (jump on flag or behave like !pc_bit)
-	    case (op)
-	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = z  ? t: pc_inc; end
-	      `JN  : begin R = r;      R2 = r2; rd = HOLD; PC = neg? t: pc_inc; end
-	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =      t;         end
-	      `NEXT: begin R = r - 1;  if (!r)             PC =         pc_inc;         // rdrop one!
-                            else begin R2 = r2; rd = HOLD; PC = r2;             end end
+	    case (opcode)
+	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = !z ? t: pc_inc; end
+              `JPOS: begin R = r;      R2 = r2; rd = HOLD; PC = neg? pc_inc: t; end
+	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =              t; end
+	      `NEXT: begin 
+             if (!r) begin R = r2;                         PC =      pc_inc;    end     // end: rdrop
+                else begin R = r - 1;  R2 = r2; rd = HOLD; PC = r2;             end end // loop back
 	    endcase
 	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
@@ -363,10 +365,10 @@ module vsiw (
    // Synch State Update (Synchronous AND Reset with 2-Stage BRAM Warmup)
    always @(posedge clk) begin
 
-      if (!rst_n)        begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0; rp <= 0;  r <= 0; r2 <= 0;  hold <= 2'b11;     end
-      else if (hold[1])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= 0; rp <= rp; r <= r; r2 <= r2; hold <= hold >> 1; end
-      else if (hold[0])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp;pc<=`ONES;rp <= rp; r <= r; r2 <= r2; hold <= hold >>1; end
-      else            begin t_reg <= T;     n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2; hold <= 0;
+      if (!rst_n)        begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0;  hold <= 2'b11;     end
+      else if (hold[1])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= 0;  rp <= rp; r <= r; r2 <= r2; hold <= hold >> 1; end
+      else if (hold[0])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp;pc<=`ONES; rp <= rp; r <= r; r2 <= r2; hold <= hold >> 1; end
+      else               begin t_reg <= T;     n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2; hold <= 0;
 	 // Spills
 	 if (write_sp) begin  stack[sp + 1] <= n2; end
 	 if (write_rp) begin rstack[rp + 1] <= r2; end

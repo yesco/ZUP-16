@@ -81,7 +81,7 @@
 
 //      PC - value
 `define JZ    5'b11000
-`define JN    5'b11001
+`define JPOS  5'b11001
 `define NEXT  5'b11010
 `define JSR   5'b11011
 
@@ -142,7 +142,7 @@
 
 
 `define iJZ    {"JZ  ", {3'b111, `JZ}}
-`define iJN    {"JN  ", {3'b111, `JN}}
+`define iJPOS  {"JPOS", {3'b111, `JPOS}}
 `define iNEXT  {"NEXT", {3'b110, `NEXT}}
 `define iCALL  {"CALL", {3'b111, `JSR}}
 
@@ -153,7 +153,7 @@
 `define iTRUE  {"TRUE", {3'b100, `TRUE}}
 
 `define kJZ    {"JZ  ", {3'b110, `JZ}}
-`define kJN    {"JN  ", {3'b110, `JN}}
+`define kJPOS  {"JPOS", {3'b110, `JPOS}}
 `define dNEXT  {"NEXT", {3'b111, `NEXT}}
 `define kCALL  {"CALL", {3'b110, `JSR}}
 
@@ -190,7 +190,7 @@ initial begin: auto_mnemonic_init
 
    // Row 3: Return Stack & Program Control (24 to 31)
    `MAP(`iRTO);   `MAP(`iRCPY);  `MAP(`iFOR);   `MAP(`iTOR);   
-   `MAP(`iJZ);    `MAP(`kJZ);    `MAP(`iJN);    `MAP(`kJN);    
+   `MAP(`iJZ);    `MAP(`kJZ);    `MAP(`iJPOS);  `MAP(`kJPOS);
    `MAP(`iNEXT);  `MAP(`dNEXT);  `MAP(`iCALL);  `MAP(`kCALL);  
    `MAP(`iSIGN);  `MAP(`iTRUE);  //`MAP(`iREV);
 end
