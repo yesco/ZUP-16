@@ -62,6 +62,8 @@ module mini8_tb;
 
    reg [23:0] arg;
 
+`define DSTACK
+   
 `ifdef DSTACK
    wire [7:0] S3;
    wire [7:0] S4;
@@ -91,7 +93,9 @@ module mini8_tb;
 `endif
       
       `PROM(7);        
+      `PROM(`iNOP);
       `PROM(5);        
+      `PROM(`iNOP);
       `PROM(3);        
       `PROM(`iADD);    
       `PROM(`iADD);    
@@ -100,16 +104,21 @@ module mini8_tb;
       `PROM(`iDUP);    
       `PROM(`iDROP);   
       `PROM(0);        
+      `PROM(`iNOP);
       `PROM(1);        
       `PROM(`iSUB);    
       `PROM(1);        
       `PROM(`iADC);    
       `PROM(1);        
+      `PROM(`iNOP);
       `PROM(2);        
+      `PROM(`iNOP);
       `PROM(3);        
       `PROM(`iOVER);   
       `PROM(1);        
+      `PROM(`iNOP);
       `PROM(2);        
+      `PROM(`iNOP);
       `PROM(3);        
       `PROM(`iTUCK);
       `PROM(`iROT);    
@@ -126,16 +135,26 @@ module mini8_tb;
       `PROM(`iSHR);
       
       `PROM(63);
+      `PROM(`iNOP);
       `PROM(63);
+      `PROM(`iNOP);
       `PROM(63);
+      `PROM(`iNOP);
 
       `PROM(1);
+      `PROM(`iNOP);
       `PROM(2);
+      `PROM(`iNOP);
       `PROM(3);
+      `PROM(`iNOP);
       `PROM(4);
+      `PROM(`iNOP);
       `PROM(5);
+      `PROM(`iNOP);
       `PROM(6);
+      `PROM(`iNOP);
       `PROM(7);
+      `PROM(`iNOP);
       `PROM(8);
       `PROM(`iDROP);
       `PROM(`iDROP);
@@ -149,7 +168,7 @@ module mini8_tb;
       
 `ifdef DSTACK
       $display("-----------------------------------------------------------");
-      $display(" TIME  | PC | OP | Z C N V | -5 -4 -3 | N2 NOS TOS | R  R2");
+      $display(" TIME  | PC | OP | Z C N V | -5 -4 -3 | N2 N  T  | R  R2");
       $display("-----------------------------------------------------------");
       
       $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h | %02h %02h %02h | %02h %02h",
@@ -159,7 +178,7 @@ module mini8_tb;
 
 `else
       $display("--------------------------------------------------");
-      $display(" TIME  | PC | OP | Z C N V | N2 NOS TOS | R  R2");
+      $display(" TIME  | PC | OP | Z C N V | N2 N  T  | R  R2");
       $display("---------------------------------------------------");
       
       $monitor("%6d | %02h |%s| %b %b %b %b | %02h %02h %02h | %02h %02h",
@@ -172,7 +191,7 @@ module mini8_tb;
       #25;
       rst_n = 1; 
 
-      #1200; 
+      #2000;
       $display("--------------------------------------------");
       $finish; 
    end

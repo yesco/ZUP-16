@@ -54,16 +54,16 @@ module vsiw (
 
   `ifdef MEM
   // Port A: Dedicated to Instruction Fetch (Read-Only)
-  output reg       mem_en_a,
-  output reg `WORD mem_addr_a,
-  input wire `BYTE mem_rdata_a, // Instruction stream matches BYTE width
+  output reg  mem_en_a,
+  output reg  `WORD mem_addr_a,
+  input wire  `BYTE mem_rdata_a, // Instruction stream matches BYTE width
 
   // Port B: Dedicated to Data Operations (Read/Write)
-  output reg       mem_en_b,
-  output reg       mem_we_b,
-  output reg `WORD mem_addr_b,
-  output reg `WORD mem_wdata_b,
-  input wire `WORD mem_rdata_b,
+  output reg  mem_en_b,
+  output reg  mem_we_b,
+  output reg  `WORD mem_addr_b,
+  output reg  `WORD mem_wdata_b,
+  input wire  `WORD mem_rdata_b,
   `endif // MEM
 
   output wire c,
@@ -93,6 +93,9 @@ module vsiw (
    wire `WORD t = t_reg;
    `endif // MEM
 
+   // Hold execution one cycle
+   reg hold;
+   
    // Hardwired Instruction Decoding Fields
    wire is_instr     = op[7];
    wire pc_bit       = op[6];
@@ -157,20 +160,19 @@ module vsiw (
    // Prefix Literal Loading Sequencer Flag
    reg prefix;
 
-   always @(posedge clk or negedge rst_n) begin
-      if (!rst_n) begin
-         prefix      <= 0;
-         mem_loading <= 0;
-      end else begin
+   // Realized Prefix Literal Loading Sequencer Flag
+   always @(posedge clk) begin
+      if (!hold) begin
          if (!is_instr) prefix <= 1;
          else           prefix <= 0;
-         mem_loading <= is_instr && (opcode == `READ);
+         mem_loading <= !is_instr && (opcode == `READ);
       end
    end
-
+   
    // Combinatorial Data Routing Matrix
    always @(*) begin
       sd = HOLD;
+      PC= pc_inc;
 
       `ifdef MEM
       // Port A Defaults: Instruction Fetch Pipeline
@@ -184,12 +186,13 @@ module vsiw (
       mem_wdata_b = t;
       `endif // MEM
 
-      if (!is_instr) begin
+      if (hold) ;
+      else if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
          if (!prefix) begin T = op;                 N = t; N2 = n; sd = PUSH; end
          else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;           end
-
+	 
       end else begin
 
 	 // Default Result by drop_bit flag
@@ -262,7 +265,7 @@ module vsiw (
 
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
-	   `TRUE: begin T = ONES;                    end
+	   `TRUE: begin T = `ONES;                   end
 	      
 	   // RPOP RCPY FOR  RPUSH
 
@@ -348,11 +351,13 @@ module vsiw (
 
    end
 
+
    // Synch State Update
    always @(posedge clk or negedge rst_n) begin
 
-      if (!rst_n) begin t_reg <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0; end
-      else        begin t_reg <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2;
+      if (!rst_n)     begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0;  hold <= 1; end
+      else if (hold)  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= pc; rp <= rp; r <= r; r2 <= r2; hold <= 0; end
+      else            begin t_reg <= T;     n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2; hold <= 0;
 	 // Spills
 	 if (write_sp) begin  stack[sp + 1] <= n2; end
 	 if (write_rp) begin rstack[rp + 1] <= r2; end

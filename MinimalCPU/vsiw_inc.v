@@ -162,17 +162,17 @@
 `ifndef SYNTHESIS
 `define MAP(op) mini8_tb.name[op & 255] = op >> 8
 
-initial begin: mnemonic_init
-   reg [23:0] arg;
-   integer idx;
+module vsiw_tb_helper;
+initial begin: auto_mnemonic_init
+   reg [23:0] auto_arg;
+   integer auto_idx;
 
    // 1. Establish clear templates for literals
-   for (i = 0; i < 128; i = i + 1) begin
-      $sformat(arg, " %02h ", i);
-      mini8_tb.name[i] = arg;
+   for (auto_idx = 0; auto_idx < 128; auto_idx = auto_idx + 1) begin
+      $sformat(auto_arg, " %02h ", auto_idx);
+      mini8_tb.name[auto_idx] = auto_arg;
    end
 
-   // 2. Perform automated system mappings
    // 2. Perform automated system mappings (Sorted by 5-bit Base Opcode Order)
    // Row 0: Registers & Shifters (0 to 7)
    `MAP(`iROR);   `MAP(`iROL);   `MAP(`iASR);   `MAP(`iXXX);   
@@ -192,7 +192,7 @@ initial begin: mnemonic_init
    `MAP(`iRTO);   `MAP(`iRCPY);  `MAP(`iFOR);   `MAP(`iTOR);   
    `MAP(`iJZ);    `MAP(`kJZ);    `MAP(`iJN);    `MAP(`kJN);    
    `MAP(`iNEXT);  `MAP(`dNEXT);  `MAP(`iCALL);  `MAP(`kCALL);  
-   `MAP(`iSIGN);  `MAP(`iTRUE);  // `MAP(`iREV);
-
+   `MAP(`iSIGN);  `MAP(`iTRUE);  //`MAP(`iREV);
 end
-`endif // !SYNTHESIS
+endmodule
+`endif // SYNTHESIS
