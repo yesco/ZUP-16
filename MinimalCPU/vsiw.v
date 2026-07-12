@@ -18,7 +18,8 @@
 // (- 317 211) = +106
 // (- 381 211) = 170 ??? this is Refill R2 from rstack!!!?!??!?
 // (- 322 209) = 113 when REMOVED refill R2!
-`define MEM // + 111 LUT! not including memory!
+// NOW: (- 353 234) = 119 LUT extra, if (DROP) N2= out; but not R2 and rstack!
+`define MEM // + 119 LUT! not including memory!
 
 `define SHIFTERS // -1 LUT!
 //`define ROTATIONS // + 10 LUT
@@ -192,7 +193,7 @@ module vsiw (
       end else begin
 
 	 // Default Result by drop_bit flag
-	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = DROP; end // refill
+	 if (drop_bit) begin T = n; N = n2;                 sd = DROP; end // refill
 	 else          begin T = t; N = n;  N2 = n2;        sd = HOLD; end // keep
 	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
@@ -220,7 +221,7 @@ module vsiw (
            // ROT: (n2 nos tos     - tos n2 nos)
            `ROT: begin
 	      N = n2; 
-              if (drop_bit) begin T = t; N2 = stack_out; end // NIP
+              if (drop_bit) begin T = t; end // NIP
               else begin          T = n; N2 = t;         end // ROT
            end
 	   `ifdef ALU
@@ -291,7 +292,7 @@ module vsiw (
               mem_we_b    = 1;
               mem_addr_b  = n;
               mem_wdata_b = t;
-              if (drop_bit) begin T = n; N = n2; N2 = stack_out; end
+              if (drop_bit) begin T = n; N = n2; end
               else          begin T = t; N = n;  N2 = n2;        end
            end
 	   `endif // MEM
@@ -309,10 +310,10 @@ module vsiw (
 	    
 	    // OVERRIDES
 	    case (op)
-	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; rd = DROP; end
-	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;            end
-	      `TOR : begin R  = t; R2 = r;                    rd = PUSH; end
-	      `FOR : begin         R2 = pc_inc;               rd = PUSH; end
+	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; R2= rstack_out; rd = DROP; end
+	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;                            end
+	      `TOR : begin R  = t; R2 = r;                                    rd = PUSH; end
+	      `FOR : begin         R2 = pc_inc;                               rd = PUSH; end
 	    endcase
 	    // FOR: keep R inserts pc_inc into R2 and push r2 down
 	    
@@ -327,7 +328,7 @@ module vsiw (
 	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = z  ? t: pc_inc; end
 	      `JN  : begin R = r;      R2 = r2; rd = HOLD; PC = neg? t: pc_inc; end
 	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =      t;         end
-	      `NEXT: begin R = r - 1;  if (!r)             PC =         pc_inc;
+	      `NEXT: begin R = r - 1;  if (!r)             PC =         pc_inc;         // rdrop one!
                             else begin R2 = r2; rd = HOLD; PC = r2;             end end
 	    endcase
 	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
@@ -335,10 +336,10 @@ module vsiw (
 	 end 
 	 
 	 // Refills
-	 if (sd == DROP) N2 =  stack_out;
-//	 if (rd == DROP) R2 = rstack_out;
-	 // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447                                                 +        if (rd == DROP) R2 = rstack_out;
-
+	 if (sd == DROP) N2 =  stack_out; // this decreases LUT w 20
+//	 if (rd == DROP) R2 = rstack_out; // if removed 357
+         // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447
+	 
       end
 
       // Signed Adjustment
