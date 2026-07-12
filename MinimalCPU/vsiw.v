@@ -33,8 +33,11 @@
 //`define STACKSIZE 1
 
 // - Fine for test core pure ./count estimate:
-`define STACKSIZE 0
-`define RSTACKSIZE 0
+//`define STACKSIZE 0
+//`define RSTACKSIZE 0
+// TODO: for correct function need to be at least 2, LOL
+`define STACKSIZE 32
+`define RSTACKSIZE 16
 
 // just 8 bits for testing
 `define WORD [`W-1:0]
@@ -194,7 +197,7 @@ module vsiw (
 
       if (hold) begin
          // Strictly lock the next state wires to current values during initialization
-         PC = pc; T = t; N = n; N2 = n2; R = r; R2 = r2;
+         PC = pc; T = t; N = n; N2 = n2; R = r; R2 = r2; SP = sp; RP = rp;
       end else if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
@@ -327,12 +330,8 @@ module vsiw (
 	      `TOR : begin R  = t; R2 = r;                         rd = PUSH; end
 	      `FOR : begin         R2 = pc_inc;                    rd = PUSH; end
 	    endcase
-	    // FOR: keep R inserts pc_inc into R2 and push r2 down
 	    
 	 end else begin
-
-	    // Usually means return
-	    PC = r; R = r2; R2 = rstack_out; rd = DROP;
 
 	    // OVERRIDES
 	    // (jump on flag or behave like !pc_bit)
@@ -340,11 +339,12 @@ module vsiw (
 	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = !z ? t: pc_inc; end
               `JPOS: begin R = r;      R2 = r2; rd = HOLD; PC = neg? pc_inc: t; end
 	      `JSR : begin R = pc_inc; R2 = r;  rd = PUSH; PC =              t; end
-	      `NEXT: begin 
-             if (!r) begin R = r2;                         PC =      pc_inc;    end     // end: rdrop
-                else begin R = r - 1;  R2 = r2; rd = HOLD; PC = r2;             end end // loop back
+	      `NEXT: 
+             if (!r) begin R = r2;     R2 = rstack_out; rd = DROP; PC = pc_inc; end // end: rdrop
+                else begin R = r - 1;  R2 = r2;         rd = HOLD; PC = r2;     end // loop back
+
+            default: begin R = r2;     R2 = rstack_out; rd = DROP;     PC = r;  end // RETURN
 	    endcase
-	    // NEXT: loop back and dec R if R, otherwise rdrop and continue
 
 	 end 
 	 
