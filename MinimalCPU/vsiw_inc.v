@@ -118,7 +118,7 @@
 `define iNIP   {"NIP ", {3'b101, `ROT}}
 
 `define iINV   {"INV ", {3'b100, `INV}}
-`define iZERO  {"ZERO", {3'b100, `ZRO}}
+//`define iZERO  {"ZERO", {3'b100, `ZRO}}
 
 // Row 2: ALU primitives
 `define kADD   {"+=  ", {3'b100, `ADD}}
@@ -144,7 +144,7 @@
 `define iJZ    {"JZ  ", {3'b111, `JZ}}
 `define iJN    {"JN  ", {3'b111, `JN}}
 `define iNEXT  {"NEXT", {3'b110, `NEXT}}
-`define iCALL  {"CALL", {3'b111, `CALL}}
+`define iCALL  {"CALL", {3'b111, `JSR}}
 
 //`define iREV   {"REV ", {3'b100, `REV}}
 //`define iABS   {"ABS ", {3'b100, `ABS}}
@@ -155,4 +155,44 @@
 `define kJZ    {"JZ  ", {3'b110, `JZ}}
 `define kJN    {"JN  ", {3'b110, `JN}}
 `define dNEXT  {"NEXT", {3'b111, `NEXT}}
-`define kCALL  {"CALL", {3'b110, `CALL}}
+`define kCALL  {"CALL", {3'b110, `JSR}}
+
+
+// --- Automated Simulation Mnemonic Decoder Subsystem ---
+`ifndef SYNTHESIS
+`define MAP(op) mini8_tb.name[op & 255] = op >> 8
+
+initial begin: mnemonic_init
+   reg [23:0] arg;
+   integer idx;
+
+   // 1. Establish clear templates for literals
+   for (i = 0; i < 128; i = i + 1) begin
+      $sformat(arg, " %02h ", i);
+      mini8_tb.name[i] = arg;
+   end
+
+   // 2. Perform automated system mappings
+   // 2. Perform automated system mappings (Sorted by 5-bit Base Opcode Order)
+   // Row 0: Registers & Shifters (0 to 7)
+   `MAP(`iROR);   `MAP(`iROL);   `MAP(`iASR);   `MAP(`iXXX);   
+   `MAP(`iSHR);   `MAP(`iSHL);   `MAP(`iSHR4);  `MAP(`iSHL4);  
+
+   // Row 1: Pure Stack Manipulators (8 to 15)
+   `MAP(`iREAD);  `MAP(`iWRIT);  `MAP(`iNOP);   `MAP(`iDROP);  
+   `MAP(`iDUP);   `MAP(`iSWAP);  `MAP(`iOVER);  `MAP(`iTUCK);  
+   `MAP(`iROT);   `MAP(`iNIP);   `MAP(`iINV);   //`MAP(`iZERO);  
+
+   // Row 2: Arithmetic & Logical Core (16 to 23)
+   `MAP(`kADD);   `MAP(`iADD);   `MAP(`kSUB);   `MAP(`iSUB);   
+   `MAP(`iINC);   `MAP(`iDEC);   `MAP(`iNEG);   `MAP(`iAND);   
+   `MAP(`iOR);    `MAP(`iXOR);   
+
+   // Row 3: Return Stack & Program Control (24 to 31)
+   `MAP(`iRTO);   `MAP(`iRCPY);  `MAP(`iFOR);   `MAP(`iTOR);   
+   `MAP(`iJZ);    `MAP(`kJZ);    `MAP(`iJN);    `MAP(`kJN);    
+   `MAP(`iNEXT);  `MAP(`dNEXT);  `MAP(`iCALL);  `MAP(`kCALL);  
+   `MAP(`iSIGN);  `MAP(`iTRUE);  // `MAP(`iREV);
+
+end
+`endif // !SYNTHESIS
