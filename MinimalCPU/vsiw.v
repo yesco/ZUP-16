@@ -14,9 +14,11 @@
 
 `define ALU
 
-// 211 -> 317 (- 317 211) = +106
-// 208 -> 447 (- 447 208) = +239
-`define MEM // + 106 LUT! not including memory!
+
+// (- 317 211) = +106
+// (- 381 211) = 170 ??? this is Refill R2 from rstack!!!?!??!?
+// (- 322 209) = 113 when REMOVED refill R2!
+`define MEM // + 111 LUT! not including memory!
 
 `define SHIFTERS // -1 LUT!
 //`define ROTATIONS // + 10 LUT
@@ -69,7 +71,7 @@ module vsiw (
   output wire v  
 );
 
-   // this saves 2 lut, but other ROR ROL ASR cost more...
+   // this saves 2 LUT, but fun ROR ROL ASR cost more...
    function `WORD reverse;
       input `WORD in;
       integer i;
@@ -81,8 +83,9 @@ module vsiw (
 
    // Storage & Wire Aliases (The Background Map)
    reg `WORD pc, t_reg, n, n2, r, r2; // Current regs
-   reg `WORD PC, T, N, N2, R, R2; // Next
+   reg `WORD PC, T,     N, N2, R, R2; // Next
 
+   // "T Bypass" - enables TRUE 1 cycle READ!
    `ifdef MEM
    wire `WORD t = mem_loading ? mem_rdata_b : t_reg;
    `else
@@ -90,18 +93,16 @@ module vsiw (
    `endif // MEM
 
    // Hardwired Instruction Decoding Fields
-   wire     is_instr = op[7];
-   wire     pc_bit   = op[6];
-   wire     drop_bit = op[5];
+   wire is_instr     = op[7];
+   wire pc_bit       = op[6];
+   wire drop_bit     = op[5];
    wire [4:0] opcode = op[4:0];
 
    // Shared Multiplexed Arithmetic/Shift Core Logic
    reg `WORD a, b;
    reg       cin;
 
-   `ifdef MEM
    reg       mem_loading;
-   `endif // MEM
 
    `ifdef ALU
    always @(*) begin
@@ -157,25 +158,17 @@ module vsiw (
 
    always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
-         prefix <= 1'b0;
-         `ifdef MEM
+         prefix      <= 0;
          mem_loading <= 0;
-         `endif // MEM
       end else begin
-         if (!is_instr) begin
-            prefix <= 1'b1;
-         end else begin
-            prefix <= 1'b0;
-         end
-         `ifdef MEM
+         if (!is_instr) prefix <= 1;
+         else           prefix <= 0;
          mem_loading <= is_instr && (opcode == `READ);
-         `endif // MEM
       end
    end
 
    // Combinatorial Data Routing Matrix
    always @(*) begin
-
       sd = HOLD;
 
       `ifdef MEM
@@ -193,14 +186,14 @@ module vsiw (
       if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
-         if (!prefix) begin T = {1'b0, op[6:0]}; N = t; N2 = n; sd = PUSH; end
-         else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;        end
+         if (!prefix) begin T = op;                 N = t; N2 = n; sd = PUSH; end
+         else         begin T = (t << 7) | op[6:0]; N = t; N2 = n2;           end
 
       end else begin
 
-	 // Default Result
-	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = DROP; end
-	 else          begin T = t; N = n;  N2 = n2;        sd = HOLD; end
+	 // Default Result by drop_bit flag
+	 if (drop_bit) begin T = n; N = n2; N2 = stack_out; sd = DROP; end // refill
+	 else          begin T = t; N = n;  N2 = n2;        sd = HOLD; end // keep
 	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
@@ -227,8 +220,8 @@ module vsiw (
            // ROT: (n2 nos tos     - tos n2 nos)
            `ROT: begin
 	      N = n2; 
-              if (drop_bit) begin T = t; N2 = stack_out; end
-              else begin          T = n; N2 = t;         end
+              if (drop_bit) begin T = t; N2 = stack_out; end // NIP
+              else begin          T = n; N2 = t;         end // ROT
            end
 	   `ifdef ALU
 	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: T = acc;
@@ -268,7 +261,7 @@ module vsiw (
 
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
-	   `TRUE: begin T = ONES;                  end
+	   `TRUE: begin T = ONES;                    end
 	      
 	   // RPOP RCPY FOR  RPUSH
 
@@ -276,19 +269,21 @@ module vsiw (
 
 	   // MEMORY INTERFACE
 
-	   // READ.keep  ( ... n2 addr - ... n2 addr val ) 
- 	   // READ.drop: ( ... n2 addr -      ... n2 val ) == "FORTH"
+ 	   // READ.drop: ( ... n2 n addr -      ... n2 n val ) == "FORTH: replace addr w val"
+	   // READ.keep  ( ... n2 n addr - ... n2 n addr val ) == "keep address, push val"
+	   // Notice: "we shifted words 'drop' 'keep' one level, diff still==1"
 	   // TODO: consider replacing addr with addr+1 ! (and maybe revere arg as n++ cannot?)
 	   `ifdef MEM
 	   `READ: begin
               mem_en_b   = 1;
               mem_addr_b = t;
-              if (drop_bit) begin T = t; N = n2; N2 = stack_out; sd = DROP; end
-              else          begin T = t; N = n;  N2 = n2;        sd = HOLD; end
+
+              if (drop_bit) begin T = t; N = n; N2 = n2; sd = HOLD; end
+              else          begin T = t; N = t; N2 = n;  sd = PUSH; end
            end
 
-	   // WRIT.keep  ( ... n2 addr val - ... n2 addr val ) 
 	   // WRIT.drop: ( ... n2 addr val -     ... n2 addr ) == "FORTH" (ok need one user drop)
+	   // WRIT.keep  ( ... n2 addr val - ... n2 addr val ) 
 	   // TODO: consider replacing addr with addr+1 ! (and maybe revere arg as n++ cannot?)
 	   // TODO: can we reuse he ALU for this!
 	   `WRIT: begin 
@@ -305,14 +300,14 @@ module vsiw (
 
 
 	 // Any instruction is optionally fused with a pc_bit:
-	 //  0( NORMAL STEP: pc++; R Stack stuff
-	 //  1) PC SETTERS:  Program Control
+	 //  0( NORMAL STEP: normal instruction; pc++; (incl R Stack)
+	 //  1) PC SETTERS:  - " - & ctrl flow;  pc= ? (incl ret/jumps/jsr/loop)
 	 if (!pc_bit) begin
 
-	    // R stack operations
+	    // Normal instructions & R stack ops
 	    PC = pc_inc; R = r; R2 = r2; rd = HOLD;
 	    
-	    // OVERRIDES ONLY
+	    // OVERRIDES
 	    case (op)
 	      `RTO : begin T  = r; N  = t; N2 = n; sd = PUSH; rd = DROP; end
 	      `RCPY: begin T  = r; N  = t; N2 = n; sd = PUSH;            end
@@ -326,7 +321,7 @@ module vsiw (
 	    // Usually means return
 	    PC = r; R = r2; R2 = rstack_out; rd = DROP;
 
-	    // OVERRIDES ONLY
+	    // OVERRIDES
 	    // (jump on flag or behave like !pc_bit)
 	    case (op)
 	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = z  ? t: pc_inc; end
@@ -339,10 +334,10 @@ module vsiw (
 
 	 end 
 	 
-	 // Refill
+	 // Refills
 	 if (sd == DROP) N2 =  stack_out;
-//       if (rd == DROP) R2 = rstack_out;
-	 // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447
+//	 if (rd == DROP) R2 = rstack_out;
+	 // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447                                                 +        if (rd == DROP) R2 = rstack_out;
 
       end
 
@@ -357,11 +352,9 @@ module vsiw (
 
       if (!rst_n) begin t_reg <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0; end
       else        begin t_reg <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2;
-	 // Spill
+	 // Spills
 	 if (write_sp) begin  stack[sp + 1] <= n2; end
 	 if (write_rp) begin rstack[rp + 1] <= r2; end
       end
-
    end
-   
 endmodule

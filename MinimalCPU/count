@@ -1,14 +1,17 @@
 ../tang $1 2>/dev/null| grep -P '^     *\d+ (\w+|  [A-Z]+)' | grep -A 40 $1 | tee $1.count
 
-git diff --word-diff=color $1.count
-
-# wordy, messy
-#git diff --word-diff=plain $1.count
-
+(
 echo "==================="
 echo "      `grep ' LUT' $1.count | awk '{sum += $1} END {print sum}'` LUT"
 echo "       `grep 'FF' $1.count | awk '{sum += $1} END {print sum}'` FF"
 echo "       `grep 'MUX' $1.count | awk '{sum += $1} END {print sum}'` MUX"
 #echo "`grep \"$1\" $1.count` STUFFS"
+) >> $1.count
+
+git diff --word-diff=color $1.count
+
+# wordy, messy
+#git diff --word-diff=plain $1.count
+
 
 
