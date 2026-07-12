@@ -93,8 +93,8 @@ module vsiw (
    wire `WORD t = t_reg;
    `endif // MEM
 
-   // Hold execution one cycle
-   reg hold;
+   // Hold execution one cycle (or two?)
+   reg [1:0] hold;
    
    // Hardwired Instruction Decoding Fields
    wire is_instr     = op[7];
@@ -360,15 +360,17 @@ module vsiw (
    end
 
 
-   // Synch State Update
+   // Synch State Update (Synchronous AND Reset with 2-Stage BRAM Warmup)
    always @(posedge clk) begin
 
-      if (!rst_n)     begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0;  hold <= 1; end
-      else if (hold)  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= pc; rp <= rp; r <= r; r2 <= r2; hold <= 0; end
+      if (!rst_n)        begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0; rp <= 0;  r <= 0; r2 <= 0;  hold <= 2'b11;     end
+      else if (hold[1])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= 0; rp <= rp; r <= r; r2 <= r2; hold <= hold >> 1; end
+      else if (hold[0])  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp;pc<=`ONES;rp <= rp; r <= r; r2 <= r2; hold <= hold >>1; end
       else            begin t_reg <= T;     n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2; hold <= 0;
 	 // Spills
 	 if (write_sp) begin  stack[sp + 1] <= n2; end
 	 if (write_rp) begin rstack[rp + 1] <= r2; end
       end
    end
+
 endmodule
