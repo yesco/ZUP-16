@@ -161,23 +161,29 @@ module vsiw (
    reg prefix;
 
    // Realized Prefix Literal Loading Sequencer Flag
-   always @(posedge clk) begin
-      if (!hold) begin
+   always @(posedge clk or negedge rst_n) begin
+      if (!rst_n) begin
+         prefix                <= 0;
+         mem_loading           <= 0;
+      end else if (!hold) begin
          if (!is_instr) prefix <= 1;
          else           prefix <= 0;
-         mem_loading <= !is_instr && (opcode == `READ);
+         mem_loading           <= !is_instr && (opcode == `READ);
       end
    end
    
    // Combinatorial Data Routing Matrix
    always @(*) begin
       sd = HOLD;
-      PC= pc_inc;
+      rd = HOLD;
+
+      // Global default calculates the next sequential step address
+      PC = pc_inc;
 
       `ifdef MEM
       // Port A Defaults: Instruction Fetch Pipeline
       mem_en_a   = 1;
-      mem_addr_a = pc;
+      mem_addr_a = PC;
 
       // Port B Defaults: Data Stack Memory Engine
       mem_en_b    = 0;
@@ -186,8 +192,10 @@ module vsiw (
       mem_wdata_b = t;
       `endif // MEM
 
-      if (hold) ;
-      else if (!is_instr) begin
+      if (hold) begin
+         // Strictly lock the next state wires to current values during initialization
+         PC = pc; T = t; N = n; N2 = n2; R = r; R2 = r2;
+      end else if (!is_instr) begin
 
          // VARIABLE-LENGTH LITERAL PIPELINE
          if (!prefix) begin T = op;                 N = t; N2 = n; sd = PUSH; end
@@ -353,7 +361,7 @@ module vsiw (
 
 
    // Synch State Update
-   always @(posedge clk or negedge rst_n) begin
+   always @(posedge clk) begin
 
       if (!rst_n)     begin t_reg <= 0;     n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0;  hold <= 1; end
       else if (hold)  begin t_reg <= t_reg; n <= n; n2 <= n2; sp <= sp; pc <= pc; rp <= rp; r <= r; r2 <= r2; hold <= 0; end
