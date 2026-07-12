@@ -1,24 +1,24 @@
-      454 vsiw
-      359 wires
-      936 wire bits
-      359 public wires
-      936 public wire bits
-       15 ports
-       57 port bits
-      454 cells
-       25   DL
+      247 vsiw
+      198 wires
+      509 wire bits
+      198 public wires
+      509 public wire bits
+        7 ports
+       14 port bits
+      247 cells
         1   GND
-       26   IBUF
-       22   LUT1
-       39   LUT2
-       84   LUT3
-      172   LUT4
-       50   MUX2_LUT5
-        3   MUX2_LUT6
-       31   OBUF
+       10   IBUF
+       15   LUT1
+       11   LUT2
+       22   LUT3
+      163   LUT4
+       17   MUX2_LUT5
+        2   MUX2_LUT6
+        1   MUX2_LUT7
+        4   OBUF
         1   VCC
-      112 submodules
-       36   ALU
-       52   DFFC
+       56 submodules
+       18   ALU
+       22   DFFC
         8   DFFCE
-       16   DFFE
+        8   DFFE
