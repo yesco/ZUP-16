@@ -14,7 +14,8 @@
 
 `define ALU
 
-// 211 -> 317 (- 317 211)
+// 211 -> 317 (- 317 211) = +106
+// 208 -> 447 (- 447 208) = +239
 //`define MEM // + 106 LUT! not including memory!
 
 `define SHIFTERS // -1 LUT!
@@ -338,7 +339,10 @@ module vsiw (
 
 	 end 
 	 
-	 if (sd == DROP) N2 = stack_out;
+	 // Refill
+	 if (sd == DROP) N2 =  stack_out;
+	 if (rd == DROP) R2 = rstack_out;
+	 // ^^^---- TODO: MEM: this SINGLE line causes LUT: 317 => 447
 
       end
 
@@ -353,9 +357,11 @@ module vsiw (
 
       if (!rst_n) begin t_reg <= 0; n <= 0; n2 <= 0;  sp <= 0;  pc <= 0;  rp <= 0;  r <= 0; r2 <= 0; end
       else        begin t_reg <= T; n <= N; n2 <= N2; sp <= SP; pc <= PC; rp <= RP; r <= R; r2 <= R2;
+	 // Spill
 	 if (write_sp) begin  stack[sp + 1] <= n2; end
 	 if (write_rp) begin rstack[rp + 1] <= r2; end
       end
+
    end
    
 endmodule
