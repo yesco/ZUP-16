@@ -5,10 +5,28 @@
 // 00 xxx xxx   = 6 bit prefix constant builder { tos, xxxxxx }
 // 01 d iiiii   = delete bit, 32 instructions
 //
-// 10 0 ooooo   = no prefix: 0jump forward 5 bits, w prefix: tosbits, ooooo
-// 10 1 ooooo   = always jmp
-// 11 0 iiiii   = no prefix: jsr#0-31 subroutine vector jump PC=rstack[#], 1-2 prefix: see jmp
+// 10 0 ooooo   = no prefix: 0jump forward 5 bits, w prefix: tosbits, ooooo (pinc=1)
+// 10 1 ooooo   = always jmp 
+
+// 11 0 iiiii   = no prefix: jsr#0-31 subroutine vector jump PC=rstack[#], 1-2 prefix: see jmp (pinc=0)
+// 11 0 11110   = JST
+// 11 0 11111   = FOR
+
 // 11 1 iiiii   = no prefix: read fixed address slot[iiiii]
+
+
+
+// PC = pc + poff + 1   or   PC = rindex[]   or  R  or  R2
+// -------------------------------------------------------
+// 00           prefix: pc++
+// 01 d         instr : pc++
+// 01 d   11    loop  : pc++ BUT (ret/loop: PC = R or R2)
+//
+// PC-bit
+// v-----
+// 10    jmp  : poff = !(z|abs) ? 0 :                 prefix ? ( tos, ooooo ) : ooooo 
+// 11 0  jsr  : NO PREFIX:  PC = rstack[iiiii];  PREFIX poff = ( tos, iiiii )
+// 11 1  ld#  : pc++
 
 
 // 32 instruction block
@@ -28,8 +46,10 @@
 //---    16:   +=   tgl  inc  dec     neg  inv  k0= abs       :: pure keep
 //    32+16:   add  sub  sign true    byte bswp 0=   -        :: (this group contains all ALU + users and others)
 
-//---    24:   rcpy >r   next <<lp    whil strd stwr agin     :: r stack and looping
-//    32+24:   r>   rdrp loop =fnd    untl read writ ret      :: r stack and looping
+//---    24:   rcpy >r   next <<lp    whil strd stwr ret      :: r stack and looping
+//    32+24:   r>   rdrp loop =fnd    untl read writ dRet     :: r stack and looping
+
+//                                    agin
 
 // Instructions where no prefix makes sense:
 // -----------------------------------------
