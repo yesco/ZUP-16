@@ -19,19 +19,30 @@
 // Numbering
 //    32 +    :: means drop-bit set! ("lossy" instruction)
 //     
-//---     0:   nop  dup  over rot     shr  shr4 ror rsr       :: keepers
+//---     0:   nop  dup  over rot     shr  shr4 ror asr       :: keepers
 //             drop swap tuck nip     shl  shl4 rol rev       :: duality
 
-//---     8:   kmul kash inp  k0=     k0<   &    |    ^       :: pure keep
-//    32+ 8:   mul  hash out  0=      0<   and  or   xor      :: pure drop
+//---     8:   kmul kash  -    -      k0<   &    |    ^       :: pure keep
+//    32+ 8:   mul  hash  -    -      0<   and  or   xor      :: pure drop
 
-//---    16:   +=   tgl  inc  dec     neg  inv  0=   abs      :: pure keep
-//    32+16:   add  sub   -    -      byte bswp sign true     :: (this group contains all ALU + users and others)
+//---    16:   +=   tgl  inc  dec     neg  inv  k0= abs       :: pure keep
+//    32+16:   add  sub  sign true    byte bswp 0=   -        :: (this group contains all ALU + users and others)
 
 //---    24:   rcpy >r   next <<lp    whil strd stwr agin     :: r stack and looping
 //    32+24:   r>   rdrp loop =fnd    untl read writ ret      :: r stack and looping
 
+// Instructions where no prefix makes sense:
+// -----------------------------------------
+// (meaning can have other prefix triggered action)
+//   drop dup over tuck rot nip shr4 shl4 ror rol asr rev
+//       0= 0<
+//   inc dec sign true neg byte inv bswp abs
+//   rcpy >r r> rdrp
+//   next loop <<lp =fnd  whil untl strd read stwr writ agin ret
 
+// PREFIX ACTION
+// =============
+//   inc dec ::: we're going to use them w prefix for INP and OUT
 
 TODO: update
 
