@@ -50,12 +50,12 @@ void skipspc(char** s) {
 
 token lasttok= 0;
 
-// is isbasenum:
+// is tbase:
 //   0: normal string token
 //   8-16: base #
 //   <0: illegal base #, token==illegal char
 //   256>= -256 len bytes string
-signed int isbasenum= 0; 
+signed int tbase= 0; 
 
 token parseStr(char** s) {
   STEP;
@@ -74,7 +74,7 @@ token parseStr(char** s) {
   }
   STEP; // skip "
 
-  isbasenum= 256+len; // lol
+  tbase= 256+len; // lol
   // return as uint64!
   return (token)m;
 }
@@ -85,12 +85,12 @@ token parseNum(char** s) {
   // base?
   if (STEP == '0' && isalnum(**s)) {
     switch(tolower(STEP)) {
-    case 'x': case 'h': isbasenum= 16; break;
-    case 'b': isbasenum= 2; break;
-    case 'o': isbasenum= 8; break;
+    case 'x': case 'h': tbase= 16; break;
+    case 'b': tbase= 2; break;
+    case 'o': tbase= 8; break;
     default: t= lastchar-'0'; break;
     }
-  } else { isbasenum= 10; t= lastchar-'0'; }
+  } else { tbase= 10; t= lastchar-'0'; }
 
   // read number
   while (isalnum(**s) || **s == '_') {
@@ -98,9 +98,9 @@ token parseNum(char** s) {
     if (lastchar == '_') continue;
     // TODO: handle decimals?
     if (d > 9) d-= 7;
-    if (d >= isbasenum) { isbasenum= -isbasenum; return lastchar; }
-    t*= isbasenum; t+= d;
-    //printf("\n# %d %d %d '%c' \t\t\t", isbasenum, t, d, lastchar);
+    if (d >= tbase) { tbase= -tbase; return lastchar; }
+    t*= tbase; t+= d;
+    //printf("\n# %d %d %d '%c' \t\t\t", tbase, t, d, lastchar);
   }
 
   return t;
@@ -113,7 +113,7 @@ token parseNum(char** s) {
 token next(char** s) {
   token t= 0;
   
-  isbasenum= 0;
+  tbase= 0;
   
   skipspc(s);
 
@@ -131,19 +131,19 @@ token next(char** s) {
 }
 
 token prtoken(token t) {
-  switch(isbasenum) {
+  switch(tbase) {
   case  8: printf("#0o%lo ", t); return t;
   case 10: printf("#%ld ",   t); return t;
   case  2: 
   case 16: printf("#0x%lx ", t); return t;
   default: 
-    if (isbasenum < 0) { printf("#%%'%c'@%d ", (char)t, isbasenum); return t; }
-    else               { printf("$%d:\"%s\" ", isbasenum-256, (char*)t);   return t; }
+    if (tbase < 0) { printf("#%%'%c'@%d ", (char)t, tbase);        return t; }
+    else           { printf("$%d:\"%s\" ", tbase-256, (char*)t);   return t; }
   case  0: break;
   }
 
   // truncated? (hibit set)
-  if (((int64_t)t) < 0) putchar('*');
+  if (((int64_t)t) < 0) putchar('%');
 
   token o= t;
   while(t) {
@@ -232,7 +232,7 @@ int main() {
   {
     char* s= f;
     token t;
-    while((t= next(&s)) || isbasenum) prtoken(t);
+    while((t= next(&s)) || tbase) prtoken(t);
     puts("----------------");
   }
 
