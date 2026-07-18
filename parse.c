@@ -155,6 +155,7 @@ token prtoken(token t) {
   return t;
 }
 
+#ifdef OLD
 // Safely extracts a character at index 'i' if it exists within the string literal length
 #define CH(s, i) ((i) < (sizeof(s) - 1) ? (uint64_t)(s)[i] : 0)
 
@@ -169,14 +170,41 @@ token prtoken(token t) {
     | (sizeof(s) - 1 >= 7 ? (CH(s, 0) << 42) | (CH(s, 1) << 35) | (CH(s, 2) << 28) | (CH(s, 3) << 21) | (CH(s, 4) << 14) | (CH(s, 5) << 7)  | CH(s, 6) : 0) \
     | (sizeof(s) - 1 >= 8 ? (CH(s, 0) << 49) | (CH(s, 1) << 42) | (CH(s, 2) << 35) | (s[3] ? (CH(s, 3) << 28) : 0) | (CH(s, 4) << 21) | (CH(s, 5) << 14) | (CH(s, 6) << 7) | CH(s, 7) : 0) \
 )
+#else
 
-token pIf(char** s) { }
-token pWhile(char** s) { }
-token pDo(char** s) { }
-token pBreak(char** s) { }
-token pContinue(char** s) { }
-token pGoto(char** s) { }
-token pExpression(char** s, token t) { }
+// Safely grabs char at index 'i' if within bounds, otherwise returns 0
+#define CH(s, i) (((i) < (sizeof(s) - 1)) ? (uint64_t)(s)[i] : 0)
+
+// Progressively nest the shifts from left to right (up to 8 characters)
+#define T1(s) CH(s, 0)
+#define T2(s) ((T1(s) << 7) | CH(s, 1))
+#define T3(s) ((T2(s) << 7) | CH(s, 2))
+#define T4(s) ((T3(s) << 7) | CH(s, 3))
+#define T5(s) ((T4(s) << 7) | CH(s, 4))
+#define T6(s) ((T5(s) << 7) | CH(s, 5))
+#define T7(s) ((T6(s) << 7) | CH(s, 6))
+#define T8(s) ((T7(s) << 7) | CH(s, 7))
+
+// Route the string to the exact macro matching its length
+#define T(s) ( \
+    sizeof(s)==2 ? T1(s) : \
+    sizeof(s)==3 ? T2(s) : \
+    sizeof(s)==4 ? T3(s) : \
+    sizeof(s)==5 ? T4(s) : \
+    sizeof(s)==6 ? T5(s) : \
+    sizeof(s)==7 ? T6(s) : \
+    sizeof(s)==8 ? T7(s) : T8(s)  \
+)
+
+#endif
+
+token pIf(char** s) 		{ return 0; }
+token pWhile(char** s) 		{ return 0; }
+token pDo(char** s) 		{ return 0; }
+token pBreak(char** s) 		{ return 0; }
+token pContinue(char** s) 	{ return 0; }
+token pGoto(char** s) 		{ return 0; }
+token pExpr(char** s, token t) 	{ return 0; }
 
 token pStmt(char** s) {
   token t= next(s);
@@ -187,7 +215,7 @@ token pStmt(char** s) {
   case T("break"):    return pBreak(s);
   case T("continue"): return pContinue(s);
   case T("goto"):     return pGoto(s);
-  default:            return pExpression(s, t);
+  default:            return pExpr(s, t);
   }
 }
 
