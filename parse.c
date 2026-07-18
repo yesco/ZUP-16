@@ -198,24 +198,54 @@ token prtoken(token t) {
 
 #endif
 
-token pIf(char** s) 		{ return 0; }
+char expect(char** s, token x) {
+  if (next(s)==x) return 1;
+  // fail
+  printf("%%Expected: "); prtoken(x);
+  printf(" Got: ");       prtoken(lasttok);
+  exit(1);
+}
+	    
+#define EXPECT(t) expect(s, T(t))
+  
+
+
+token pExpr(char** s, token t) 	{ return 0; }
+
+token parExpr(char** s) {
+  EXPECT("(");;
+  pExpr(s, next(s));
+  EXPECT(")");
+  return 1;
+}
+    
+token pStmt(char** s); // forward
+
+token pIf(char** s) {
+  printf("===IF==\n");
+
+  parExpr(s);
+  pStmt(s);
+  token t= next(s);
+  if (t==T("else")) pStmt(s); else ; // TODO: undo, PEEK?
+  return 1;
+}
+
 token pWhile(char** s) 		{ return 0; }
 token pDo(char** s) 		{ return 0; }
 token pBreak(char** s) 		{ return 0; }
 token pContinue(char** s) 	{ return 0; }
 token pGoto(char** s) 		{ return 0; }
-token pExpr(char** s, token t) 	{ return 0; }
 
 token pStmt(char** s) {
-  token t= next(s);
-  switch(t) {
+  switch(next(s)) {
   case T("if"):       return pIf(s);
   case T("while"):    return pWhile(s);
   case T("do"):       return pDo(s);
   case T("break"):    return pBreak(s);
   case T("continue"): return pContinue(s);
   case T("goto"):     return pGoto(s);
-  default:            return pExpr(s, t);
+  default:            return pExpr(s, lasttok);
   }
 }
 
@@ -237,6 +267,15 @@ int main() {
   }
 
   free(f);
+
+  {
+    //char* s= "if (0) 3; else 4;";
+    char* s= "if (0) 3; 5;";
+    token t;
+    pStmt(&s);
+    puts("----------------");
+  }
+  
 }
 
 // Test long symbols
