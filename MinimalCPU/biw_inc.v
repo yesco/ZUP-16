@@ -46,10 +46,11 @@
 //---    16:   +=   tgl  inc  dec     neg  inv  k0= abs       :: pure keep
 //    32+16:   add  sub  sign true    byte bswp 0=   -        :: (this group contains all ALU + users and others)
 
-//---    24:   rcpy >r   next <<lp    whil strd stwr ret      :: r stack and looping
+//---    24:   rcpy >r   next <<lp    agin strd stwr ret      :: r stack and looping
 //    32+24:   r>   rdrp loop =fnd    untl read writ dRet     :: r stack and looping
 
-//                                    agin
+
+
 
 // Instructions where no prefix makes sense:
 // -----------------------------------------
