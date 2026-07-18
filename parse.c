@@ -35,7 +35,8 @@ char* readfile(char* filename) {
     return b;
 }
 
-#define STEP (*(*s)++)
+char lastchar= 0;
+#define STEP (lastchar=*(*s)++)
 
 void skipspc(char** s) {
 #ifdef NL_TOKEN
@@ -55,10 +56,37 @@ token lasttok= 0;
 //   <0: illegal base #, token==illegal char
 signed char isbasenum= 0; 
 
+token parseNum(char** s) {
+  token t= 0;
+
+  // base?
+  if (STEP == '0' && isalnum(**s)) {
+    switch(tolower(STEP)) {
+    case 'x': case 'h': isbasenum= 16; break;
+    case 'b': isbasenum= 2; break;
+    case 'o': isbasenum= 8; break;
+    default: t= lastchar-'0'; break;
+    }
+  } else { isbasenum= 10; t= lastchar-'0'; }
+
+  // read number
+  while (isalnum(**s) || **s == '_') {
+    char d= toupper(STEP)-'0';
+    if (lastchar == '_') continue;
+    // TODO: handle decimals?
+    if (d > 9) d-= 7;
+    if (d >= isbasenum) { isbasenum= -isbasenum; return lastchar; }
+    t*= isbasenum; t+= d;
+    //printf("\n# %d %d %d '%c' \t\t\t", isbasenum, t, d, lastchar);
+  }
+
+  return t;
+}
+
+
 // Anything starting with a digit must be a number ala C
 // Any token positive is complete
 // A token with hibit set is truncated
-
 token next(char** s) {
   token t= 0;
   
@@ -66,30 +94,7 @@ token next(char** s) {
   
   skipspc(s);
 
-  if (isdigit(**s)) {
-
-    // base?
-    if (STEP == '0') {
-      switch(tolower(STEP)) {
-      case 'x': case 'h': isbasenum= 16; break;
-      case 'b': isbasenum= 2; break;
-      default: t= lasttok-'0';
-      case 'o': isbasenum= 8; break;
-      }
-    } else isbasenum= 10;
-
-    // read number
-    while (isalnum(**s) || **s == '_') {
-      char d= toupper(STEP)-'0';
-      if (lasttok == '_') continue;
-      // TODO: handle decimals?
-      if (d > 9) d-= 'A'-'9'+10;
-      if (d >= isbasenum) { isbasenum= -isbasenum; return lasttok; }
-      t*= isbasenum; t+= d;
-    }
-
-    return t;
-  }
+  if (isdigit(**s)) return parseNum(s);
   
   // Gobble string (Not UTF-8 safe)
   while(isalnum(**s) || **s=='_') {
@@ -103,11 +108,11 @@ token next(char** s) {
 
 token prtoken(token t) {
   switch(isbasenum) {
-  case 2:
-  case 8:
-  case 10:
-  case 16: printf("%x ", t); return t;
-  default: printf("%%%c(0x%2x) ", t, t); return t;
+  case  8: printf("#0o%lo ", t); return t;
+  case 10: printf("#%ld ", t); return t;
+  case  2: 
+  case 16: printf("#0x%lx ", t); return t;
+  default: printf("#%%%c(0x%l2x) ", (char)t, t); return t;
   case 0: break;
   }
 
@@ -145,4 +150,6 @@ int main() {
 
 // Test long symbols
 // abcdefgh abcdefghi abcdefghij abcdefghijk
+// 0 3 7 17 21 42 47 4711
+// 0x12345678 0x7f
 
