@@ -155,6 +155,42 @@ token prtoken(token t) {
   return t;
 }
 
+// Safely extracts a character at index 'i' if it exists within the string literal length
+#define CH(s, i) ((i) < (sizeof(s) - 1) ? (uint64_t)(s)[i] : 0)
+
+// Standard C macro that shifts 7 bits progressively for up to 8 characters
+#define T(s) ( \
+    (sizeof(s) - 1 >= 1 ? CH(s, 0) : 0) \
+    | (sizeof(s) - 1 >= 2 ? (CH(s, 0) << 7)  | CH(s, 1) : 0) \
+    | (sizeof(s) - 1 >= 3 ? (CH(s, 0) << 14) | (CH(s, 1) << 7)  | CH(s, 2) : 0) \
+    | (sizeof(s) - 1 >= 4 ? (CH(s, 0) << 21) | (CH(s, 1) << 14) | (CH(s, 2) << 7)  | CH(s, 3) : 0) \
+    | (sizeof(s) - 1 >= 5 ? (CH(s, 0) << 28) | (CH(s, 1) << 21) | (CH(s, 2) << 14) | (CH(s, 3) << 7)  | CH(s, 4) : 0) \
+    | (sizeof(s) - 1 >= 6 ? (CH(s, 0) << 35) | (CH(s, 1) << 28) | (CH(s, 2) << 21) | (CH(s, 3) << 14) | (CH(s, 4) << 7)  | CH(s, 5) : 0) \
+    | (sizeof(s) - 1 >= 7 ? (CH(s, 0) << 42) | (CH(s, 1) << 35) | (CH(s, 2) << 28) | (CH(s, 3) << 21) | (CH(s, 4) << 14) | (CH(s, 5) << 7)  | CH(s, 6) : 0) \
+    | (sizeof(s) - 1 >= 8 ? (CH(s, 0) << 49) | (CH(s, 1) << 42) | (CH(s, 2) << 35) | (s[3] ? (CH(s, 3) << 28) : 0) | (CH(s, 4) << 21) | (CH(s, 5) << 14) | (CH(s, 6) << 7) | CH(s, 7) : 0) \
+)
+
+token pIf(char** s) { }
+token pWhile(char** s) { }
+token pDo(char** s) { }
+token pBreak(char** s) { }
+token pContinue(char** s) { }
+token pGoto(char** s) { }
+token pExpression(char** s, token t) { }
+
+token pStmt(char** s) {
+  token t= next(s);
+  switch(t) {
+  case T("if"):       return pIf(s);
+  case T("while"):    return pWhile(s);
+  case T("do"):       return pDo(s);
+  case T("break"):    return pBreak(s);
+  case T("continue"): return pContinue(s);
+  case T("goto"):     return pGoto(s);
+  default:            return pExpression(s, t);
+  }
+}
+
 
 int main() {
   char *f= readfile("parse.c");
