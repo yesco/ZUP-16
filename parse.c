@@ -54,7 +54,30 @@ token lasttok= 0;
 //   0: normal string token
 //   8-16: base #
 //   <0: illegal base #, token==illegal char
-signed char isbasenum= 0; 
+//   256>= -256 len bytes string
+signed int isbasenum= 0; 
+
+token parseStr(char** s) {
+  STEP;
+
+  // Just count
+  int len= 1;
+  char* x= *s;
+  while(*x && *x != '"') { if (*x == '\\') ++x; ++x; ++len; }
+  
+  
+  char *m= calloc(1, len), *p= m;
+  while(**s != '"') {
+    // TODO: \r \n \0 \... \t \b \f
+    if (**s == '\\') STEP;
+    *p++= STEP;
+  }
+  STEP; // skip "
+
+  isbasenum= 256+len; // lol
+  // return as uint64!
+  return (token)m;
+}
 
 token parseNum(char** s) {
   token t= 0;
@@ -95,6 +118,7 @@ token next(char** s) {
   skipspc(s);
 
   if (isdigit(**s)) return parseNum(s);
+  if (**s == '"')   return parseStr(s);
   
   // Gobble string (Not UTF-8 safe)
   while(isalnum(**s) || **s=='_') {
@@ -109,11 +133,13 @@ token next(char** s) {
 token prtoken(token t) {
   switch(isbasenum) {
   case  8: printf("#0o%lo ", t); return t;
-  case 10: printf("#%ld ", t); return t;
+  case 10: printf("#%ld ",   t); return t;
   case  2: 
   case 16: printf("#0x%lx ", t); return t;
-  default: printf("#%%%c(0x%l2x) ", (char)t, t); return t;
-  case 0: break;
+  default: 
+    if (isbasenum < 0) { printf("#%%'%c'@%d ", (char)t, isbasenum); return t; }
+    else               { printf("$%d:\"%s\" ", isbasenum-256, (char*)t);   return t; }
+  case  0: break;
   }
 
   // truncated? (hibit set)
@@ -128,6 +154,7 @@ token prtoken(token t) {
   if (o != 10) putchar(' ');
   return t;
 }
+
 
 int main() {
   char *f= readfile("parse.c");
@@ -152,4 +179,5 @@ int main() {
 // abcdefgh abcdefghi abcdefghij abcdefghijk
 // 0 3 7 17 21 42 47 4711
 // 0x12345678 0x7f
+// Faulty numbers: 09 0xfk 47a3
 
