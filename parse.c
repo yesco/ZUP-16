@@ -216,10 +216,30 @@ token pStmt(char** s); // forward
 token pIf(char** s) {
   printf("===IF==\n");
 
+  //  if (parExpr(s) && pStmt(s) && (t= ID)) {
+  //    if (C("else") && pStmt(s)) 
+
   parExpr(s);
-  pStmt(s);
-  token t= next(s);
-  if (t==T("else")) pStmt(s); else ; // TODO: undo, PEEK?
+
+#ifdef NOTDONE
+  patch goelse= gen0BRANCH(0);
+  pStmt(s, next(s));
+
+  if (PEEK("else")) {
+
+    patch goendif= genBRANCH(0);
+    doPatch(goelse, HERE);
+    pStmt(s);
+    doPatch(goendif, HERE);
+
+  } else {
+
+    doPatch(goelse, HERE);
+
+  }
+    
+#endif // NOTDONE
+  
   return 1;
 }
 
