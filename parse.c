@@ -10,7 +10,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 #include <unistd.h>
+#include <assert.h>
+
+// Hack: A token represents a 
 
 typedef uint64_t token;
 
@@ -23,13 +27,12 @@ char* readfile(char* filename) {
     if (len == -1) return NULL;
     rewind(f);
 
-    char *b= calloc(1, len + 1);
-    if (!b) goto fail;
+    char *b= calloc(1, len+1);
+    assert(b);
 
     long n= fread(b, 1, len, f);
     if (n < len) { free(b); b = NULL; }
 
- fail:
     if (f) fclose(f);
 
     return b;
@@ -56,6 +59,20 @@ token lasttok= 0;
 //   <0: illegal base #, token==illegal char
 //   256>= -256 len bytes string
 signed int tbase= 0; 
+
+
+// Numeric Constant From String
+// (Single char becomes it's ASCII)
+#define TC(s, i) (((i) + 1 < sizeof(s)) ? (uint64_t)(s)[i] : 0)
+#define TS(c, acc) ((c) == 0 ? (acc) : (((acc) << 7) | (c)))
+#define TX(s, i, acc) TS(TC(s, i), acc)
+#define TR(s) TX(s,7,TX(s,6,TX(s,5,TX(s,4,TX(s,3,TX(s,2,TX(s,1,TC(s,0))))))))
+
+// If string length > 1 (sizeof > 2), inject 0x80 into the highest 8 bits.
+#define T(s) (sizeof(s) > 2 ? (TR(s) | (0x80ULL << 56)) : TR(s))
+  
+// 64-bit systems alocate PTR where the highbyte is either 0x00 0xFF (x86) or 0xB4 (android/arm)
+#define TisPTR(t) ((t)<0x7f? 0: (t)>>56==0x80? 0: 1)
 
 token parseStr(char** s) {
   STEP;
@@ -119,19 +136,35 @@ token next(char** s) {
 
   if (isdigit(**s)) return parseNum(s);
   if (**s == '"')   return parseStr(s);
-  
+  if (**s == '/') { // removed comments!
+    char second= *(*s+1);
+    if (second == '/') { STEP; STEP; while(**s && **s != '\n')             STEP; return next(s); }
+    if (second == '*') { STEP; STEP; while(**s && 0==strncmp(*s, "*/", 2)) STEP; return next(s); }
+  }
+
   // Gobble string (Not UTF-8 safe)
+  char n= 0, *o= *s;
   while(isalnum(**s) || **s=='_') {
+    ++n;
     if (t & TRUNC) t|= TRUNC | (t>>(64-8));
     t<<= 7; t^= STEP;
   }
   
+  if (t & TRUNC) { tbase= 1; t= (token)strndup(o, n); }
+
   // No string/num return char
   return (lasttok= t ? t : STEP);
 }
 
+// Any non-constant token is allocated on the heap
+// 64-bit systems heap allocations are aligned on 128 bytes!
+char teq(token a, token b) {
+  return a==b? 1: TisPTR(a)&&TisPTR(b)? strcmp((char*)a, (char*)b): 0;
+}
+
 token prtoken(token t) {
   switch(tbase) {
+  case  1: printf("%%%s|%016lx| ", (char*)t, t); return t;
   case  8: printf("#0o%lo ", t); return t;
   case 10: printf("#%ld ",   t); return t;
   case  2: 
@@ -154,18 +187,6 @@ token prtoken(token t) {
   if (o != 10) putchar(' ');
   return t;
 }
-
-#include <stdio.h>
-#include <stdint.h>
-
-// Numeric Constant From String
-// (Single char becomes it's ASCII)
-#define TC(s, i) (((i) + 1 < sizeof(s)) ? (uint64_t)(s)[i] : 0)
-#define TS(c, acc) ((c) == 0 ? (acc) : (((acc) << 7) | (c)))
-#define TX(s, i, acc) TS(TC(s, i), acc)
-
-#define T(s) TX(s,7,TX(s,6,TX(s,5,TX(s,4,TX(s,3,TX(s,2,TX(s,1,TC(s,0))))))))
-
 
 char expect(char** s, token x) {
   if (next(s)==x) return 1;
@@ -247,11 +268,12 @@ int main() {
     puts("----------------");
   }
   
+  // Test various symbols
+  #ifdef FOO
+  abcdefg abcdefgh abcdefghi abcdefghij abcdefghijk
+  0 3 7 17 21 42 47 4711
+  0x12345678 0x7f
+  Faulty numbers: 09 0xfk 47a3
+  #endif
 }
-
-// Test long symbols
-// abcdefgh abcdefghi abcdefghij abcdefghijk
-// 0 3 7 17 21 42 47 4711
-// 0x12345678 0x7f
-// Faulty numbers: 09 0xfk 47a3
 
