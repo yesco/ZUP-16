@@ -41,7 +41,8 @@ module top_terminal (
     wire [7:0]  uart_rx_byte;
     wire        uart_rx_ready;
     reg         uart_tx_enqueue;
-    wire        uart_tx_busy;
+    wire	uart_tx_busy;
+
     
     // Text Framebuffer Video Matrix (Shared Memory Map)
     // 64 Columns * 32 Rows Matrix = 2048 Characters total Block RAM allocation
@@ -94,26 +95,51 @@ module top_terminal (
         end
     end
 
+
+
+
     // ---------------------------------------------------------------------
-    // 4. Reusable Dual-Wire UART Block
+    // 4. Reusable Dual-Wire UART Block (Mapped to Sipeed Naming Structure)
     // ---------------------------------------------------------------------
-    // Replaced original uart_top logic with specific modular folder drivers
-    uart_rx my_uart_receiver (
+    // Maps standard Sipeed example code structures cleanly to the system bus
+
+    // ---------------------------------------------------------------------
+    // 4. Reusable Dual-Wire UART Block (Mapped directly to your exact modules)
+    // ---------------------------------------------------------------------
+    
+    // Wire to tell the receiver we are always ready to accept incoming characters
+    wire rx_data_ready_wire = 1'b1; 
+    
+    uart_rx #(
+        .CLK_FRE(27),          // Tang Nano 20K native clock speed
+        .BAUD_RATE(115200)
+    ) my_uart_receiver (
         .clk(clk_pix),
         .rst_n(sys_rst_n),
-        .rx_pin(uart_rx),
-        .data_out(uart_rx_byte),
-        .ready(uart_rx_ready)
+        .rx_data(uart_rx_byte),
+        .rx_data_valid(uart_rx_ready),
+        .rx_data_ready(rx_data_ready_wire), // Must be driven high to accept data
+        .rx_pin(uart_rx)
     );
 
-    uart_tx my_uart_transmitter (
+    wire uart_tx_ready_from_mod;
+
+    uart_tx #(
+        .CLK_FRE(27),          // Tang Nano 20K native clock speed
+        .BAUD_RATE(115200)
+    ) my_uart_transmitter (
         .clk(clk_pix),
         .rst_n(sys_rst_n),
-        .tx_pin(uart_tx),
-        .data_in(cpu_mem_dout[7:0]),
-        .enqueue(uart_tx_enqueue),
-        .busy(uart_tx_busy)
+        .tx_data(cpu_mem_dout[7:0]),
+        .tx_data_valid(uart_tx_enqueue),
+        .tx_data_ready(uart_tx_ready_from_mod), // High means IDLE / READY to send
+        .tx_pin(uart_tx)
     );
+
+    // Invert the module's "ready" signal to drive our system bus "busy" status net
+    assign uart_tx_busy = ~uart_tx_ready_from_mod;
+
+
 
     // ---------------------------------------------------------------------
     // 5. Video Rendering Engine & Character ROM Grid

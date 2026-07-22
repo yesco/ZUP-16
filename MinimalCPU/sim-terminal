@@ -11,6 +11,7 @@ rm -f ${TARGET}.sim
 # Include all structural sub-modules, top level glue, testbench, and Gowin Simulation cell assets
 iverilog -o ${TARGET}.sim \
     top_terminal.v \
+    terminal-mocks.v \
     uart/uart_rx.v \
     uart/uart_tx.v \
     /data/data/com.termux/files/usr/share/yosys/gowin/cells_sim.v \
