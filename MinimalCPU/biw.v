@@ -216,32 +216,7 @@ module biw (
 	    
          // CORE INSTRUCTION SPECIFIC OVERRIDES
          case (opcode)
-           // DROP: (n2 nos tos - n2 nos tos)
-	   // NOP:  (n2 nos tos - n2 nos)
-	   // - no code needed!
-	   
-           // SWAP: (n2 nos tos - ... n2 tos nos)
-           // DUP:  (n2 nos tos - n2 nos tos tos)
-	   `DUP: begin
-              if (drop_bit) begin T = n; N = t; N2 = n2; sd = HOLD; end // SWAP
-              else          begin T = t; N = t; N2 = n;  sd = PUSH; end // DUP
-           end
 
-           // OVER: (... n2 nos tos - ... n2 nos tos nos)
-           // TUCK: (... n2 nos tos - ... n2 tos nos tos)
-           `OVER: begin
-              sd = PUSH;
-              if (drop_bit) begin T = n; N = t; N2 = n; end // OVER
-              else          begin T = t; N = n; N2 = t; end // TUCK
-           end
-
-           // NIP: (... n2 nos tos - ... n2 tos)
-           // ROT: (n2 nos tos     - tos n2 nos)
-           `ROT: begin
-	      N = n2; 
-              if (drop_bit) begin T = t; end // NIP
-              else begin          T = n; N2 = t;         end // ROT
-           end
 	   `ifdef ALU
 	   `ADD, `SUB, `INC, `DEC, `NEG, `INV: T = acc;
 	   `endif // ALU
@@ -276,15 +251,11 @@ module biw (
 	   `REV: T = reverse(t); // +5 LUT
 	   `endif // REVERSE
 	   
-
-
 	   // + 3 LUT!
 	   `SIGN: begin T = { !t[`W-1], t[`W-2:0] }; end 
 	   `TRUE: begin T = `ONES;                   end
 	      
 	   // RPOP RCPY FOR  RPUSH
-
-
 
 	   // MEMORY INTERFACE
 
@@ -335,8 +306,7 @@ module biw (
 	    
 	 end else begin
 
-	    // OVERRIDES
-	    // (jump on flag or behave like !pc_bit)
+	    // JUMPS
 	    case (opcode)
 	      `JZ  : begin R = r;      R2 = r2; rd = HOLD; PC = !z ? t: pc_inc; end
               `JPOS: begin R = r;      R2 = r2; rd = HOLD; PC = neg? pc_inc: t; end

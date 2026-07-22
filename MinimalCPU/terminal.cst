@@ -1,0 +1,26 @@
+// =========================================================================
+// Gowin Physical Constraint Configuration File (*.cst)
+// Targeted Deployment Hardware: Sipeed Tang Nano 20K Board
+// =========================================================================
+
+// Clock Control and System Input Pins
+IO_LOC "sys_clk" 4;
+IO_PORT "sys_clk" IO_TYPE=LVCMOS33 PULL_UP=NONE;
+IO_LOC "sys_rst_n" 88;
+IO_PORT "sys_rst_n" IO_TYPE=LVCMOS33 PULL_UP=UP;
+
+// Integrated BL616 USB-to-UART Bridge Interconnect
+IO_LOC "uart_tx" 69;
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_UP=NONE;
+IO_LOC "uart_rx" 70;
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_UP=UP;
+
+// Physical HDMI Panel Pin Infrastructure mappings (Differential Standard)
+IO_LOC "tmds_clk_p" 33,34;
+IO_PORT "tmds_clk_p" PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_p[0]" 35,36;
+IO_PORT "tmds_data_p[0]" PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_p[1]" 37,38;
+IO_PORT "tmds_data_p[1]" PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_p[2]" 39,40;
+IO_PORT "tmds_data_p[2]" PULL_UP=NONE DRIVE=8;

@@ -3,53 +3,64 @@
 // Instruction Mask
 // ====================================
 // 00 xxx xxx   = 6 bit prefix constant builder { tos, xxxxxx }
-// 01 d iiiii   = delete bit, 32 instructions
-//
-// 10 0 ooooo   = no prefix: 0jump forward 5 bits, w prefix: tosbits, ooooo (pinc=1)
-// 10 1 ooooo   = always jmp 
+
+// 01 0 iiiii   = no prefix: READfixed address slot[iiiii], prefix: slot[p6p i5i] slot[p6p p6p i5i]
+//                0 read0-31: "overlong read" make it relative! slot[TOS + i5i] (saves one byte)
+
+// 01 1 iiiii   = 32 "ALU" instructions
+
+
+// 10 0 ooooo   = jnz forward 5 bits, w prefix: pc+= {tosbits o5o} onebit=SUPER CONDITION
+// 10 1 ooooo   = always jmp
 
 // 11 0 iiiii   = no prefix: jsr#0-31 subroutine vector jump PC=rstack[#], 1-2 prefix: see jmp (pinc=0)
-// 11 0 11110   = JST
-// 11 0 11111   = FOR
+// 11 0 11110   = FOR
+// 11 0 11111   = TCALL
 
-// 11 1 iiiii   = no prefix: read fixed address slot[iiiii]
+// 11 10 xxxx   = FREE! (any more control?)
+// 11 10 0xxx   =   fr0-6 fpush
+// 11 10 1xxx   =   fw0-6 fpop
+// 11 11 xxxx   = 16 looping instructions ending with ret=FF
 
 
-
-// PC = pc + poff + 1   or   PC = rindex[]   or  R  or  R2
-// -------------------------------------------------------
-// 00           prefix: pc++
-// 01 d         instr : pc++
-// 01 d   11    loop  : pc++ BUT (ret/loop: PC = R or R2)
+// FRAME POINTER
+// -------------
+// Used for C style function with parameter compilation.
+// Provides a pointer into the stack and indexed access to local parameters
 //
-// PC-bit
-// v-----
-// 10    jmp  : poff = !(z|abs) ? 0 :                 prefix ? ( tos, ooooo ) : ooooo 
-// 11 0  jsr  : NO PREFIX:  PC = rstack[iiiii];  PREFIX poff = ( tos, iiiii )
-// 11 1  ld#  : pc++
+//       1 nop 2 nop 3 JSR#foo
+//
+// foo:  4 nop 5 fpush .... fr0 fr1 + fr2 + fr3 + fr4 + fret
+
+// fpush: rpush(fp); fp <- sp;
+// fpop : sp= fp; fp= rpop;
 
 
-// 32 instruction block
-// ====================
-// Many instrunctions have a "lossy" variant indicated
-// by the "drop bit". Sometimes it just means create/keep
+// SUPER CONDITION
+// ---------------
+// if hibit of prefix set; reinterpret condition bit
 
-// Numbering
-//    32 +    :: means drop-bit set! ("lossy" instruction)
-//     
-//---     0:   nop  dup  over rot     shr  shr4 ror asr       :: keepers
-//             drop swap tuck nip     shl  shl4 rol rev       :: duality
+// 1 PREFIX:
+//   0: nzif
+//   1: oddif
 
-//---     8:   kmul kash  -    -      k0<   &    |    ^       :: pure keep
-//    32+ 8:   mul  hash  -    -      0<   and  or   xor      :: pure drop
-
-//---    16:   +=   tgl  inc  dec     neg  inv  k0= abs       :: pure keep
-//    32+16:   add  sub  sign true    byte bswp 0=   -        :: (this group contains all ALU + users and others)
-
-//---    24:   rcpy >r   next <<lp    agin strd stwr ret      :: r stack and looping
-//    32+24:   r>   rdrp loop =fnd    untl read writ dRet     :: r stack and looping
+// 2 PREFIX: 42 =if   OR   42 <if  ... 3 bytes ... but: dup 42 - jnz#xxx === 4-5 bytes
+//   0: p6p == tos, then jump 
+//   1: p6p <  tos, ...
 
 
+
+//           (rev) ror  rol  asr    shr  shl  shr4 shl4
+
+// ALU:       add  sub (inc)(dec)  (neg) and  or   xor       :: mostly droppers
+//                      inc  dec                  (inv)      :: inv is free from ALU!
+
+//            nop drop  mul  hash   bswp(inv) 0=   0<
+
+//            rcpy r>   >r   rdrp   read writ sign true
+
+// IO:        0 inc == IN0 == getchar, 0 dec == OUT0 putchar/puts
+//            dec= decree! OUT1 == 16 bits "number" out
 
 
 // Instructions where no prefix makes sense:
