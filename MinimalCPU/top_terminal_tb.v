@@ -2,17 +2,20 @@
 
 module top_terminal_tb;
 
-    // Testbench Driver Registers
     reg        clk_27m;
     reg        rst_n;
     reg        sim_rx;
     wire       sim_tx;
     
-    // Video Output Tracking Wires
     wire [2:0] tmds_p, tmds_n;
     wire [2:0] tmds_clk_p, tmds_clk_n;
 
-    // 1. Instantiate the Master Top Module under analysis
+    // Tracker variables to score the simulation success
+    integer chars_written_to_vram = 0;
+    integer chars_echoed_over_uart = 0;
+    reg [7:0] last_vram_char_0 = 8'h00;
+    reg [7:0] last_vram_char_1 = 8'h00;
+
     top_terminal uut (
         .sys_clk(clk_27m),
         .sys_rst_n(rst_n),
@@ -22,77 +25,91 @@ module top_terminal_tb;
         .tmds_data_p(tmds_p),       .tmds_data_n(tmds_n)
     );
 
-    // 2. Generate 27 MHz Base Reference System Clock Cycle (~37.037 ns period)
+    // Clock generator (27 MHz)
     always begin
         #18.518 clk_27m = ~clk_27m;
     end
 
-    // Helper task to automatically push a single data byte through the RX pin
-    // Emulates standard 115200 Baud UART framing sequence (234 reference clock cycles per bit)
+    // UART Tx Bit Decoder (Watches the TX line to count echoed characters)
+    // 115200 Baud = ~234 clock cycles per bit
+    integer bit_idx;
+    reg [7:0] decoded_tx_byte;
+    always @(negedge sim_tx) begin
+        // Detected a start bit on echo line!
+        repeat(117) @(posedge clk_27m); // Jump to middle of start bit
+        repeat(234) @(posedge clk_27m); // Skip to middle of first data bit
+        for (bit_idx = 0; bit_idx < 8; bit_idx = bit_idx + 1) begin
+            decoded_tx_byte[bit_idx] = sim_tx;
+            repeat(234) @(posedge clk_27m);
+        end
+        $display("[ECHO CHECK] Host PC received echo byte: 0x%h ('%c')", decoded_tx_byte, decoded_tx_byte);
+        chars_echoed_over_uart = chars_echoed_over_uart + 1;
+    end
+
+    // Standard task to push character inputs into the RX line
     task send_uart_byte;
         input [7:0] data;
         integer i;
         begin
-            // A. Drive Low Start Bit
-            sim_rx = 1'b0;
+            sim_rx = 1'b0; // Start Bit
             repeat(234) @(posedge clk_27m);
-            
-            // B. Shift out 8 Data payload bits (LSB First)
             for (i = 0; i < 8; i = i + 1) begin
                 sim_rx = data[i];
                 repeat(234) @(posedge clk_27m);
             end
-            
-            // C. Drive High Stop Bit
-            sim_rx = 1'b1;
+            sim_rx = 1'b1; // Stop Bit
             repeat(234) @(posedge clk_27m);
         end
     endtask
 
-    // 3. Execution Simulation Procedure Block
-    initial begin
-        // Display Tracking header
-        $display("[SIM START] Initializing Terminal System Core Verification...");
-        
-        // Initialize Core System Pins
-        clk_27m = 1'b0;
-        rst_n   = 1'b0;
-        sim_rx  = 1'b1; // Idle serial line rests high
-
-        // Assert system reset condition
-        #200;
-        rst_n = 1'b1;
-        $display("[SIM STATUS] Hardware Reset Released.");
-
-        // Wait brief stability padding
-        #1000;
-
-        // Transmit Character ASCII 'H' (Hex 8'h48)
-        $display("[SIM STIMULUS] Injecting Serial Byte: 'H' (0x48)");
-        send_uart_byte(8'h48);
-        
-        // Transmit Character ASCII 'I' (Hex 8'h49)
-        $display("[SIM STIMULUS] Injecting Serial Byte: 'I' (0x49)");
-        send_uart_byte(8'h49);
-
-        // Allow execution cycle window for the CPU to digest the data packet and draw to screen VRAM
-        repeat(2000) @(posedge clk_27m);
-
-        // Simulation completed cleanly
-        $display("[SIM SUCCESS] Data Stream completed. Review out log files.");
-        $finish;
+    // Monitoring block for VRAM screen writes
+    always @(posedge clk_27m) begin
+        if (uut.cpu_mem_wr && uut.is_vram_space) begin
+            $display("[VRAM CHECK] Screen Matrix Write -> Slot: 0x%h Data: '%c'", uut.cpu_vram_addr, uut.cpu_mem_dout[7:0]);
+            if (uut.cpu_vram_addr == 11'd0) last_vram_char_0 = uut.cpu_mem_dout[7:0];
+            if (uut.cpu_vram_addr == 11'd1) last_vram_char_1 = uut.cpu_mem_dout[7:0];
+            chars_written_to_vram = chars_written_to_vram + 1;
+        end
     end
 
-    // 4. Capture Output changes to print to the generated console log file
-    always @(posedge clk_27m) begin
-        if (uut.uart_rx_ready) begin
-            $display("[SIM MONITOR] Bus Notification: UART Received Byte data = 0x%h ('%c')", 
-                     uut.uart_rx_byte, uut.uart_rx_byte);
+    initial begin
+        clk_27m = 1'b0;
+        rst_n   = 1'b0;
+        sim_rx  = 1'b1;
+
+        #200;
+        rst_n = 1'b1;
+        #2000;
+
+        // Fire back-to-back keystrokes
+        $display("[SIM] Sending 'H'...");
+        send_uart_byte(8'h48);
+        
+        // Wait a small window for the CPU loop to clear before next character arrives
+        repeat(500) @(posedge clk_27m);
+
+        $display("[SIM] Sending 'I'...");
+        send_uart_byte(8'h49);
+
+        // Let the simulation settle
+        repeat(3000) @(posedge clk_27m);
+
+        // =================================================================
+        // SYSTEM SCORECARD VALIDATION
+        // =================================================================
+        $display("\n============= SIMULATION SCORECARD =============");
+        $display("Expected Screen Characters: Slot 0 = 'H', Slot 1 = 'I'");
+        $display("Actual Screen Characters:   Slot 0 = '%c', Slot 1 = '%c'", last_vram_char_0, last_vram_char_1);
+        $display("Total VRAM writes registered: %0d / 2", chars_written_to_vram);
+        $display("Total Echoes caught on TX:    %0d / 2", chars_echoed_over_uart);
+        
+        if (last_vram_char_0 == "H" && last_vram_char_1 == "I" && chars_echoed_over_uart == 2) begin
+            $display("RESULT: SUCCESS - Core terminal bus is verified.");
+        end else begin
+            $display("RESULT: FAILED - Missing data, drops, or collisions detected.");
         end
-        if (uut.cpu_mem_wr && uut.is_vram_space) begin
-            $display("[SIM MONITOR] VRAM Allocation Written: Address Offset=0x%h, Character Byte Data=0x%h", 
-                     uut.cpu_vram_addr, uut.cpu_mem_dout[7:0]);
-        end
+        $display("================================================\n");
+        $finish;
     end
 
 endmodule

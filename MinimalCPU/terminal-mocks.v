@@ -27,43 +27,51 @@ module j1_cpu_core (
     input  wire [15:0] mem_din,
     output reg         mem_wr
 );
-    reg [2:0] state;
+    reg [1:0]  state;
     reg [10:0] simulated_cursor;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            mem_addr  <= 16'h0000;
-            mem_dout  <= 16'h0000;
-            mem_wr    <= 1'b0;
-            state     <= 3'd0;
+            mem_addr         <= 16'h0000;
+            mem_dout         <= 16'h0000;
+            mem_wr           <= 1'b0;
+            state            <= 2'd0;
             simulated_cursor <= 11'd0;
         end else begin
             case (state)
-                0: begin // Poll UART status register (0x8002)
+                2'd0: begin
+                    // Step 1: Constantly look at the UART Status Address
                     mem_addr <= 16'h8002;
                     mem_wr   <= 1'b0;
-                    state    <= 3'd1;
-                end
-                1: begin // Check if RX data ready flag (bit 0) is set
+                    // If bit 0 (uart_rx_ready) goes high, instantly jump to read data
                     if (mem_din[0] == 1'b1) begin
-                        mem_addr <= 16'h8000; // Switch to read UART Data
-                        state    <= 3'd2;
-                    end else begin
-                        state    <= 3'd0; // Keep polling
+                        mem_addr <= 16'h8000;
+                        state    <= 2'd1;
                     end
                 end
-                2: begin // Capture data and prepare to write to text matrix VRAM
+                
+                2'd1: begin
+                    // Step 2: Grab the data byte, drop it into VRAM, and advance cursor
                     mem_addr <= {5'b0, simulated_cursor};
-                    mem_dout <= mem_din; // Echo character data byte
+                    mem_dout <= {8'h00, mem_din[7:0]};
                     mem_wr   <= 1'b1;
-                    state    <= 3'd3;
-                end
-                3: begin // Complete VRAM layout write
-                    mem_wr   <= 1'b0;
                     simulated_cursor <= simulated_cursor + 1'b1;
-                    state    <= 3'd0;
+                    state    <= 2'd2;
                 end
-                default: state <= 3'd0;
+
+                2'd2: begin
+                    // Step 3: Trigger a UART echo write back out to the host PC
+                    mem_addr <= 16'h8000;
+                    mem_dout <= mem_dout; // Keep the same character byte
+                    mem_wr   <= 1'b1;
+                    state    <= 2'd3;
+                end
+                
+                2'd3: begin
+                    // Clear write flags and return to idle polling loop
+                    mem_wr <= 1'b0;
+                    state  <= 2'd0;
+                end
             endcase
         end
     end
