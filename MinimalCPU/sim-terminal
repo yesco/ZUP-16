@@ -1,0 +1,22 @@
+#!/bin/bash
+
+TARGET=$1
+if [ -z "$TARGET" ]; then
+    echo "Usage: ./sim-terminal <top_module_name>"
+    exit 1
+fi
+
+rm -f ${TARGET}.sim
+
+# Include all structural sub-modules, top level glue, testbench, and Gowin Simulation cell assets
+iverilog -o ${TARGET}.sim \
+    top_terminal.v \
+    uart/uart_rx.v \
+    uart/uart_tx.v \
+    /data/data/com.termux/files/usr/share/yosys/gowin/cells_sim.v \
+    ${TARGET}_tb.v || exit
+
+vvp ${TARGET}.sim | tee ${TARGET}.out || exit
+
+git diff -U9999 ${TARGET}.out
+echo "--- DONE ---"
