@@ -17,17 +17,24 @@ module top_terminal (
 );
 
     // ---------------------------------------------------------------------
-    // 1. Clock Generation Framework
+    // 1. Clock Generation Framework (Simulation and Hardware Aware)
     // ---------------------------------------------------------------------
     wire clk_pix;   // 27 MHz Pixel Clock
     wire clk_serial;// 135 MHz Phase Clock (5x Pixel clock for TMDS)
 
-    gowin_rpll my_pll_inst (
-        .clkout(clk_serial), 
-        .clkin(sys_clk)      
-    );
-    
     assign clk_pix = sys_clk; 
+
+    `ifdef SIMULATION
+        // In simulation, we bypass the 5x clock generation loop entirely.
+        // This cuts out the time-wheel calculations that cause Icarus Verilog to hang.
+        assign clk_serial = sys_clk; 
+    `else
+        // Hardware Target: Instantiate physical rPLL primitive for the Tang Nano 20K
+        gowin_rpll my_pll_inst (
+            .clkout(clk_serial), 
+            .clkin(sys_clk)      
+        );
+    `endif
 
     // ---------------------------------------------------------------------
     // 2. Inter-Module Interconnect System Lines
