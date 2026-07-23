@@ -12,6 +12,7 @@ rm -f ${TARGET}.sim
 iverilog -o ${TARGET}.sim \
     top_terminal.v \
     terminal-mocks.v \
+    mock_cpu.v \
     uart/uart_rx.v \
     uart/uart_tx.v \
     /data/data/com.termux/files/usr/share/yosys/gowin/cells_sim.v \

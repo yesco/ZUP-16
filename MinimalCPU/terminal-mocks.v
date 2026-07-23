@@ -19,7 +19,7 @@ endmodule
 
 // 2. Mock J1 CPU Core Engine (Simulates an echo loopback program)
 // Reads from UART data address (0x8000) when ready, writes to Text VRAM (0x0000)
-module j1_cpu_core (
+module cpu_core (
     input  wire        clk,
     input  wire        rst_n,
     output reg  [15:0] mem_addr,
@@ -116,6 +116,7 @@ module video_timing_generator (
 endmodule
 
 
+`ifdef FAKEFONT
 // 4. Mock Font Look-Up Table Array ROM (Provides simple geometric lines for testing)
 module font_rom_8x16 (
     input  wire [7:0] char_code,
@@ -130,6 +131,38 @@ module font_rom_8x16 (
             line_data = (row_index[0]) ? 8'hAA : 8'h55; // Visible pixel hash lines
     end
 endmodule
+`else
+// =========================================================================
+// Full Alphanumeric 128-Character Font Table ROM Engine
+// Hardware Architecture Strategy: Targets 2048 Matrix Bytes
+// =========================================================================
+
+module font_rom_8x16 (
+    input  wire [7:0] char_code, // Full ASCII Input Key (0 to 127)
+    input  wire [3:0] row_index, // Vertical active display line index (0 to 15)
+    output reg  [7:0] line_data  // Parallel pixels byte out
+);
+
+    // Array definition depth: 128 characters * 16 rows = 2048 elements
+    reg [7:0] font_mem [0:2047];
+
+    initial begin
+        // Compiles the complete structured text sequence array directly
+        $readmemh("vga_font_16.hex", font_mem);
+    end
+
+    // Direct addressing arithmetic layout
+    // (char_code * 16) + row_index maps to {char_code[6:0], row_index[3:0]}
+    always @(*) begin
+        if (char_code[7] == 1'b0) begin
+            line_data = font_mem[{char_code[6:0], row_index}];
+        end else begin
+            line_data = 8'h00; // Returns blank padding space for high-bit extensions
+        end
+    end
+
+endmodule
+`endif 
 
 
 // 5. Mock DVI / HDMI Transmission Matrix Encoder
