@@ -1,11 +1,16 @@
 #!/bin/bash
 # tang-terminal - Command-Line Hardware Toolchain Synthesis Automations
+# Optimized for your nextpnr-himbaechel + Apicula environment
 
-rm -f terminal_gates.json terminal_routed.json yesco_terminal.fs
+BUILD_DIR="."
+FILENAME="yesco_terminal"
+
+# 1. Clean previous build files
+rm -f "${BUILD_DIR}/${FILENAME}.json" "${BUILD_DIR}/${FILENAME}_pnr.json" "${BUILD_DIR}/${FILENAME}.fs"
 
 echo ">>> Phase 1: Synthesizing Hardware Register Logic with Yosys..."
 yosys -p "
-    synth_gowin -top top_terminal -json terminal_gates.json
+    synth_gowin -top top_terminal -json ${BUILD_DIR}/${FILENAME}.json
 " \
 top_terminal.v \
 mock_cpu.v \
@@ -16,19 +21,21 @@ dvi_tx.v \
 video_sync.v \
 gowin_rpll/gowin_rpll.v || exit 1
 
-echo ">>> Phase 2: Running Physical Place & Route Routing Core..."
-nextpnr-gowin \
-    --json terminal_gates.json \
-    --write terminal_routed.json \
+echo ">>> Phase 2: Running Physical Place & Route Routing Core using Himbaechel..."
+nextpnr-himbaechel \
+    -v \
     --device GW2AR-LV18QN88C8/I7 \
-    --cst terminal.cst || exit 1
+    --vopt family=GW2A-18C \
+    --vopt cst="terminal.cst" \
+    --json "${BUILD_DIR}/${FILENAME}.json" \
+    --write "${BUILD_DIR}/${FILENAME}_pnr.json" || exit 1
 
 echo ">>> Phase 3: Packing Final Configuration Memory Bitstream Image..."
 gowin_pack \
-    -d GW2AR-LV18QN88C8/I7 \
-    -o yesco_terminal.fs \
-    terminal_routed.json || exit 1
+    -d GW2A-18C \
+    -o "${BUILD_DIR}/${FILENAME}.fs" \
+    "${BUILD_DIR}/${FILENAME}_pnr.json" || exit 1
 
 echo "================================================================="
-echo " SUCCESS: Hardware binary generated as 'yesco_terminal.fs'"
+echo " SUCCESS: Gowin stream located at ${BUILD_DIR}/${FILENAME}.fs"
 echo "================================================================="
