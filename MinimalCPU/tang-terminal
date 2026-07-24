@@ -10,7 +10,7 @@ yosys -p "
 " \
 top_terminal.v \
 mock_cpu.v \
-vga_font_16.hexv \
+vga_font_16.hex \
 uart/uart_rx.v \
 uart/uart_tx.v \
 dvi_tx/dvi_tx.v \
