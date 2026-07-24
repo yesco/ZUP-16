@@ -1,6 +1,6 @@
 // =========================================================================
 // Universal Mock CPU Engine (Handshaking Verification Architecture)
-// Fixed: Eliminates typing lag, double keystrokes, and Ctrl+L stalls
+// Fixed: Eliminates infinite Ctrl+L loop stalls and typing regressions
 // =========================================================================
 
 module mock_terminal_cpu (
@@ -19,6 +19,15 @@ module mock_terminal_cpu (
     wire [5:0] scan_col = scan_ptr % 64;
     wire [4:0] current_row = cursor_ptr / 64;
 
+    // Edge Detection Register Logic
+    reg        rx_valid_r;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) rx_valid_r <= 1'b0;
+        else if (mem_addr == 16'h8002) rx_valid_r <= mem_din;
+    end
+
+    wire rx_edge = (mem_addr == 16'h8002) && (mem_din == 1'b1) && (rx_valid_r == 1'b0);
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             mem_addr    <= 16'h8002;
@@ -34,8 +43,7 @@ module mock_terminal_cpu (
                     mem_wr   <= 1'b0;
                     mem_addr <= 16'h8002; 
                     
-                    // If a valid key arrives, grab it immediately
-                    if (mem_din == 1'b1) begin 
+                    if (rx_edge) begin 
                         mem_addr <= 16'h8000; 
                         state    <= 3'd1;
                     end
@@ -81,14 +89,10 @@ module mock_terminal_cpu (
                 3'd3: begin
                     mem_wr   <= 1'b0;
                     mem_addr <= 16'h8002;
-                    // HANDSHAKE SAFETY: Wait right here until the testbench lowering 
-                    // of the valid flag registers on the bus. This stops double-typing.
-                    if (mem_din == 1'b0) begin
-                        state <= 3'd0;
-                    end
+                    state    <= 3'd0; 
                 end
 
-                // --- Ctrl+L Screen Dump ---
+                // --- Ctrl+L Full Screen Matrix Redraw ---
                 3'd4: begin
                     mem_wr   <= 1'b0;
                     mem_addr <= {5'b0, scan_ptr};
@@ -111,10 +115,21 @@ module mock_terminal_cpu (
                     end
                     
                     if (scan_ptr == 11'd2047) begin
-                        state <= 3'd3; // Head to the safe handshake exit state
+                        mem_addr <= 16'h8002;
+                        state    <= 3'd7; // Jump to the clean loop-breaker safety state
                     end else begin
                         scan_ptr <= scan_ptr + 1'b1;
                         state    <= 3'd4;
+                    end
+                end
+
+                3'd7: begin
+                    mem_wr   <= 1'b0;
+                    mem_addr <= 16'h8002;
+                    // LOOP-BREAKER INTERLOCK: Wait right here until the valid flag 
+                    // drops back to 0 before letting the CPU return to standard typing.
+                    if (mem_din == 1'b0) begin
+                        state <= 3'd0;
                     end
                 end
 

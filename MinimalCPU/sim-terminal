@@ -5,9 +5,14 @@ if [ -z "$TARGET" ]; then
     exit 1
 fi
 
-rm -f ${TARGET}.sim
+# Clean up any leftover artifacts from previous runs
+rm -f ${TARGET}.sim terminal_pipe
+killall -9 vvp 2>/dev/null
 
-# Compile files with high-level system standard parsing
+# Create a true Unix named pipe (FIFO) file pipeline
+mkfifo terminal_pipe
+
+# Compile project assets cleanly with system parsing parameters
 iverilog -g2012 -DSIMULATION -o ${TARGET}.sim \
     top_terminal.v \
     mock_cpu.v \
@@ -20,10 +25,16 @@ OLD_STTY=$(stty -g)
 # Force the Unix terminal window into single-character instant raw execution mode
 stty raw -echo
 
-# Fire execution wrapper explicitly mapping standard input descriptors directly down to vvp
-vvp ${TARGET}.sim -vcd
+# Route standard keyboard input descriptors straight into the background pipe channel
+dd bs=1 if=/dev/stdin of=terminal_pipe 2>/dev/null &
+DD_PID=$!
 
-# Restore your normal command line settings cleanly
+# Execute the simulation engine in the foreground
+vvp ${TARGET}.sim
+
+# Cleanup: Kill background processes, restore terminal state, and delete the pipe file
+kill $DD_PID 2>/dev/null
 stty "$OLD_STTY"
+rm -f terminal_pipe
 echo ""
 echo "--- DONE ---"

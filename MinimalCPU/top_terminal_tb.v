@@ -15,7 +15,6 @@ module top_terminal_tb;
 
     integer stdin_fd;
     integer input_char;
-    reg     exit_request;
 
     top_terminal uut (
         .sys_clk(clk_27m), .sys_rst_n(rst_n),
@@ -30,6 +29,7 @@ module top_terminal_tb;
         #18.518 clk_27m = ~clk_27m;
     end
 
+    // Direct Unix Output Text Printer Task
     task trigger_instant_echo;
         input [7:0] echo_char;
         begin
@@ -42,11 +42,11 @@ module top_terminal_tb;
         end
     endtask
 
+    // System Reset and Greetings Output Initialization
     initial begin
         rst_n            = 1'b0;
         sim_direct_char  = 8'h00;
         sim_direct_valid = 1'b0;
-        exit_request     = 1'b0;
 
         #500;
         rst_n = 1'b1;
@@ -58,38 +58,30 @@ module top_terminal_tb;
         $fflush();
     end
 
-    // Unix Keyboard Input Loop
+    // Real-Time Keyboard Input Loop Block
     initial begin
         #1000;
         stdin_fd = $fopen("/dev/stdin", "r");
         if (stdin_fd == 0) $finish;
 
-        while (!exit_request) begin
+        while (1) begin
             input_char = $fgetc(stdin_fd);
             if (input_char != -1) begin
-                if (input_char == "!") begin
-                    exit_request = 1'b1;
-                end else begin
-                    // Assert the character onto the bus
-                    @(posedge clk_27m);
-                    sim_direct_char  = input_char[7:0];
-                    sim_direct_valid = 1'b1;
-                    
-                    // Keep the valid strobe up for exactly 4 clock edges 
-                    // so the CPU is guaranteed to catch it
-                    repeat(4) @(posedge clk_27m);
-                    
-                    // Clear the valid strobe cleanly from the testbench side
-                    sim_direct_valid = 1'b0;
-                end
+                if (input_char == "!") $finish;
+                
+                // Assert the key safely onto the bus lines
+                @(posedge clk_27m);
+                sim_direct_char  = input_char[7:0];
+                sim_direct_valid = 1'b1;
+                
+                // Hold the strobe active for 4 clock edges so the hardware edge detector registers it
+                repeat(4) @(posedge clk_27m);
+                sim_direct_valid = 1'b0;
             end
-            // Small time delay to keep your Unix host processor stable
-            #50; 
+            
+            // Brief time padding step to keep UNIX thread execution unblocked
+            #5; 
         end
-
-        $write("%c%c[STATUS] Terminating live interactive loop simulation.%c%c", 8'h0D, 8'h0A, 8'h0D, 8'h0A);
-        $fflush();
-        $finish;
     end
 
 endmodule
