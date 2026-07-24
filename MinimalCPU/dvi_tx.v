@@ -32,11 +32,22 @@ module hdmi_encoder_top (
     // ---------------------------------------------------------------------
     wire ser_clk, ser_b, ser_g, ser_r;
 
+    // ---------------------------------------------------------------------
+    // 2. Hardware 10:1 Serializer Architecture Primitives (OSER10)
+    // ---------------------------------------------------------------------
+    wire ser_clk, ser_b, ser_g, ser_r;
+
+    // Fixed: Stripped out the invalid .GSRAM parameter block for Yosys compatibility
+    OSER10 ser_clk_inst (.Q(ser_clk), .D0(1'b1), .D1(1'b1), .D2(1'b1), .D3(1'b1), .D4(1'b1), .D5(1'b0), .D6(1'b0), .D7(1'b0), .D8(1'b0), .D9(1'b0), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+    OSER10 ser_b_inst   (.Q(ser_b),   .D0(tmds_b), .D1(tmds_b), .D2(tmds_b), .D3(tmds_b), .D4(tmds_b), .D5(tmds_b), .D6(tmds_b), .D7(tmds_b), .D8(tmds_b), .D9(tmds_b), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+    OSER10 ser_g_inst   (.Q(ser_g),   .D0(tmds_g), .D1(tmds_g), .D2(tmds_g), .D3(tmds_g), .D4(tmds_g), .D5(tmds_g), .D6(tmds_g), .D7(tmds_g), .D8(tmds_g), .D9(tmds_g), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+    OSER10 ser_r_inst   (.Q(ser_r),   .D0(tmds_r), .D1(tmds_r), .D2(tmds_r), .D3(tmds_r), .D4(tmds_r), .D5(tmds_r), .D6(tmds_r), .D7(tmds_r), .D8(tmds_r), .D9(tmds_r), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+
     // Use Gowin's native OSER10 blocks to step parallel 10-bit words out to 1-bit streams
-    OSER10 #(.GSRAM("FALSE")) ser_clk_inst (.Q(ser_clk), .D0(1'b1), .D1(1'b1), .D2(1'b1), .D3(1'b1), .D4(1'b1), .D5(1'b0), .D6(1'b0), .D7(1'b0), .D8(1'b0), .D9(1'b0), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
-    OSER10 #(.GSRAM("FALSE")) ser_b_inst   (.Q(ser_b),   .D0(tmds_b[0]), .D1(tmds_b[1]), .D2(tmds_b[2]), .D3(tmds_b[3]), .D4(tmds_b[4]), .D5(tmds_b[5]), .D6(tmds_b[6]), .D7(tmds_b[7]), .D8(tmds_b[8]), .D9(tmds_b[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
-    OSER10 #(.GSRAM("FALSE")) ser_g_inst   (.Q(ser_g),   .D0(tmds_g[0]), .D1(tmds_g[1]), .D2(tmds_g[2]), .D3(tmds_g[3]), .D4(tmds_g[4]), .D5(tmds_g[5]), .D6(tmds_g[6]), .D7(tmds_g[7]), .D8(tmds_g[8]), .D9(tmds_g[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
-    OSER10 #(.GSRAM("FALSE")) ser_r_inst   (.Q(ser_r),   .D0(tmds_r[0]), .D1(tmds_r[1]), .D2(tmds_r[2]), .D3(tmds_r[3]), .D4(tmds_r[4]), .D5(tmds_r[5]), .D6(tmds_r[6]), .D7(tmds_r[7]), .D8(tmds_r[8]), .D9(tmds_r[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+//    OSER10 #(.GSRAM("FALSE")) ser_clk_inst (.Q(ser_clk), .D0(1'b1), .D1(1'b1), .D2(1'b1), .D3(1'b1), .D4(1'b1), .D5(1'b0), .D6(1'b0), .D7(1'b0), .D8(1'b0), .D9(1'b0), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+//    OSER10 #(.GSRAM("FALSE")) ser_b_inst   (.Q(ser_b),   .D0(tmds_b[0]), .D1(tmds_b[1]), .D2(tmds_b[2]), .D3(tmds_b[3]), .D4(tmds_b[4]), .D5(tmds_b[5]), .D6(tmds_b[6]), .D7(tmds_b[7]), .D8(tmds_b[8]), .D9(tmds_b[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+//    OSER10 #(.GSRAM("FALSE")) ser_g_inst   (.Q(ser_g),   .D0(tmds_g[0]), .D1(tmds_g[1]), .D2(tmds_g[2]), .D3(tmds_g[3]), .D4(tmds_g[4]), .D5(tmds_g[5]), .D6(tmds_g[6]), .D7(tmds_g[7]), .D8(tmds_g[8]), .D9(tmds_g[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
+//    OSER10 #(.GSRAM("FALSE")) ser_r_inst   (.Q(ser_r),   .D0(tmds_r[0]), .D1(tmds_r[1]), .D2(tmds_r[2]), .D3(tmds_r[3]), .D4(tmds_r[4]), .D5(tmds_r[5]), .D6(tmds_r[6]), .D7(tmds_r[7]), .D8(tmds_r[8]), .D9(tmds_r[9]), .PCLK(clk_pixel), .FCLK(clk_serial), .RESET(!rst_n));
 
     // ---------------------------------------------------------------------
     // 3. Hardware True Differential Drivers (ELVDS_OBUF)
