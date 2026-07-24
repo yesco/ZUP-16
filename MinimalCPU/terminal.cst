@@ -1,6 +1,6 @@
 // =========================================================================
 // Gowin Physical Constraint Configuration File (*.cst)
-// Targeted Deployment Hardware: Sipeed Tang Nano 20K Board
+// Mapped explicitly for nextpnr-himbaechel / Tang Nano 20K
 // =========================================================================
 
 // Clock Control and System Input Pins
@@ -15,15 +15,26 @@ IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_UP=NONE;
 IO_LOC "uart_rx" 70;
 IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_UP=UP;
 
-// Physical HDMI Panel Pin Mappings (True Differential Standard)
+// Physical HDMI Clock Differential Pair Mappings
 IO_LOC "tmds_clk_p" 33;
 IO_PORT "tmds_clk_p" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_clk_n" 34;
+IO_PORT "tmds_clk_n" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
 
+// Physical HDMI Blue/Sync Channel Differential Pair Mappings
 IO_LOC "tmds_data_p[0]" 35;
 IO_PORT "tmds_data_p[0]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_n[0]" 36;
+IO_PORT "tmds_data_n[0]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
 
+// Physical HDMI Green Channel Differential Pair Mappings
 IO_LOC "tmds_data_p[1]" 37;
 IO_PORT "tmds_data_p[1]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_n[1]" 38;
+IO_PORT "tmds_data_n[1]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
 
+// Physical HDMI Red Channel Differential Pair Mappings
 IO_LOC "tmds_data_p[2]" 39;
 IO_PORT "tmds_data_p[2]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
+IO_LOC "tmds_data_n[2]" 40;
+IO_PORT "tmds_data_n[2]" IO_TYPE=LVCMOS33D PULL_UP=NONE DRIVE=8;
