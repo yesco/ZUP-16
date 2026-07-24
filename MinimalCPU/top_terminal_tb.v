@@ -29,10 +29,18 @@ module top_terminal_tb;
     end
 
     // Task called directly by the hardware module to print characters instantly
+    // Fixed: Detects Carriage Returns and appends the mandatory Unix raw linefeed bit
     task trigger_instant_echo;
         input [7:0] echo_char;
         begin
-            $write("%c", echo_char);
+            if (echo_char == 8'h0D) begin
+                // In Raw Mode, we must emit both \r and \n to column snap cleanly
+                $write("%c%c", 8'h0D, 8'h0A); 
+            end else if (echo_char == 8'h0A) begin
+                $write("%c%c", 8'h0D, 8'h0A);
+            end else begin
+                $write("%c", echo_char);
+            end
             $fflush();
         end
     endtask
