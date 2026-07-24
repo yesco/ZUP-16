@@ -7,7 +7,7 @@ fi
 
 rm -f ${TARGET}.sim
 
-# Compile standard files
+# Compile files with high-level system standard parsing
 iverilog -g2012 -DSIMULATION -o ${TARGET}.sim \
     top_terminal.v \
     mock_cpu.v \
@@ -20,8 +20,8 @@ OLD_STTY=$(stty -g)
 # Force the Unix terminal window into single-character instant raw execution mode
 stty raw -echo
 
-# Fire execution foreground engine
-vvp ${TARGET}.sim
+# Fire execution wrapper explicitly mapping standard input descriptors directly down to vvp
+vvp ${TARGET}.sim -vcd
 
 # Restore your normal command line settings cleanly
 stty "$OLD_STTY"
