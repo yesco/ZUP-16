@@ -107,7 +107,7 @@ module tmds_channel_encoder (
                 2'b01:   tmds <= 10'b0010101011;
                 2'b10:   tmds <= 10'b0101010100;
                 default: tmds <= 10'b1010101011;
-            </case>
+            endcase
         end else begin
             if (cnt == 0 || q_m_ones == 4) begin
                 tmds[9]   <= ~q_m[8];
