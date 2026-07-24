@@ -7,18 +7,23 @@ fi
 
 rm -f ${TARGET}.sim
 
-# Force clean modern verilog parser standards
-# We drop the hardware cell library entirely for the mock test run to break the deadlock
+# Compile standard files
 iverilog -g2012 -DSIMULATION -o ${TARGET}.sim \
     top_terminal.v \
     mock_cpu.v \
     terminal-mocks.v \
-    uart/uart_rx.v \
-    uart/uart_tx.v \
     ${TARGET}_tb.v || exit
 
-# Run the execution wrapper with runtime event step throttling
-vvp ${TARGET}.sim | tee ${TARGET}.out || exit
+# Save original terminal configurations
+OLD_STTY=$(stty -g)
 
-git diff -U9999 ${TARGET}.out
+# Force the Unix terminal window into single-character instant raw execution mode
+stty raw -echo
+
+# Fire execution foreground engine
+vvp ${TARGET}.sim
+
+# Restore your normal command line settings cleanly
+stty "$OLD_STTY"
+echo ""
 echo "--- DONE ---"

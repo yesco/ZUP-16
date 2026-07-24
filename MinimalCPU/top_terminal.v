@@ -146,35 +146,36 @@ module top_terminal (
     end
 
     // ---------------------------------------------------------------------
-    // 4. Reusable Dual-Wire UART Block
+    // 4. Reusable Dual-Wire UART Block (Simulation Optimized)
     // ---------------------------------------------------------------------
-    wire rx_data_ready_wire = 1'b1; 
-    
-    uart_rx #(
-        .CLK_FRE(27),          
-        .BAUD_RATE(115200)
-    ) my_uart_receiver (
-        .clk(clk_pix),
-        .rst_n(sys_rst_n),
-        .rx_data(uart_rx_byte),
-        .rx_data_valid(uart_rx_ready),
-        .rx_data_ready(rx_data_ready_wire), 
-        .rx_pin(uart_rx)
-    );
-
-    uart_tx #(
-        .CLK_FRE(27),          
-        .BAUD_RATE(115200)
-    ) my_uart_transmitter (
-        .clk(clk_pix),
-        .rst_n(sys_rst_n),
-        .tx_data(cpu_mem_dout[7:0]),
-        .tx_data_valid(uart_tx_enqueue),
-        .tx_data_ready(uart_tx_ready), 
-        .tx_pin(uart_tx)
-    );
-
-    assign uart_tx_busy = ~uart_tx_ready;
+    `ifdef SIMULATION
+        // Bypass the slow serial shifting overhead during simulation entirely!
+        // Directly pass data through the system bus lines instantly.
+        assign uart_rx_byte  = top_terminal_tb.sim_direct_char;
+        assign uart_rx_ready = top_terminal_tb.sim_direct_valid;
+        assign uart_tx_busy  = 1'b0;
+        
+        // Monitor the memory bus write strobe to instantly pass echoes back to the TB
+        always @(posedge clk_pix) begin
+            if (cpu_mem_wr && is_uart_data) begin
+                top_terminal_tb.trigger_instant_echo(cpu_mem_dout[7:0]);
+            end
+        end
+    `else
+        // Hardware Target: Leave the real Alinx/Sipeed serial shifters intact for the board
+        wire rx_data_ready_wire = 1'b1; 
+        uart_rx #(.CLK_FRE(27), .BAUD_RATE(115200)) my_uart_receiver (
+            .clk(clk_pix), .rst_n(sys_rst_n),
+            .rx_data(uart_rx_byte), .rx_data_valid(uart_rx_ready),
+            .rx_data_ready(rx_data_ready_wire), .rx_pin(uart_rx)
+        );
+        uart_tx #(.CLK_FRE(27), .BAUD_RATE(115200)) my_uart_transmitter (
+            .clk(clk_pix), .rst_n(sys_rst_n),
+            .tx_data(cpu_mem_dout[7:0]), .tx_data_valid(uart_tx_enqueue),
+            .tx_data_ready(uart_tx_ready), .tx_pin(uart_tx)
+        );
+        assign uart_tx_busy = ~uart_tx_ready;
+    `endif
 
     // ---------------------------------------------------------------------
     // 5. Video Rendering Engine & Character ROM Grid
