@@ -1,6 +1,6 @@
 // =========================================================================
 // Gowin Hardware Phase-Locked Loop Architecture Primitive (rPLL)
-// Corrected for Tang Nano 20K Silicon Targets (GW2AR-LV18QN88C8/I7)
+// Fully Cleaned for Open-Source Yosys + Tang Nano 20K Targets
 // =========================================================================
 
 module gowin_rpll (
@@ -13,7 +13,7 @@ module gowin_rpll (
     wire gw_gnd;
     assign gw_gnd = 1'b0;
 
-    // Structural Instantiation matching the precise chip hardware primitive
+    // Structural Instantiation matching the exact open-source cell primitive
     rPLL #(
         .FCLKIN("27"),
         .IDIV_SEL(0),
@@ -30,8 +30,7 @@ module gowin_rpll (
         .CLKIN(clkin),
         .CLKFB(gw_gnd),
         .RESET(gw_gnd),
-        .RESET_P(gw_gnd),
-        .INSEL(gw_gnd)
+        .RESET_P(gw_gnd)
     );
 
 endmodule
