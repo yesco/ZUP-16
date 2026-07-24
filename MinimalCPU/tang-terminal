@@ -1,5 +1,8 @@
 #!/bin/bash
-# compile-hardware.sh - Command-Line Hardware Toolchain Synthesis Automations
+# tang-terminal - Command-Line Hardware Toolchain Synthesis Automations
+
+# 1. Force a clean directory state
+rm -f terminal_gates.json terminal_routed.json yesco_terminal.fs
 
 echo ">>> Phase 1: Synthesizing Hardware Register Logic with Yosys..."
 yosys -p "
@@ -14,11 +17,12 @@ dvi_tx/dvi_tx.v \
 gowin_rpll/gowin_rpll.v || exit 1
 
 echo ">>> Phase 2: Running Physical Place & Route Routing Core..."
+# Fixed: Mapped explicitly to your local 'terminal.cst' file name
 nextpnr-gowin \
     --json terminal_gates.json \
     --write terminal_routed.json \
     --device GW2AR-LV18QN88C8/I7 \
-    --cst terminal_pins.cst || exit 1
+    --cst terminal.cst || exit 1
 
 echo ">>> Phase 3: Packing Final Configuration Memory Bitstream Image..."
 gowin_pack \

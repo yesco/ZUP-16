@@ -11,8 +11,8 @@ module top_terminal (
     input  wire       uart_rx,     // RX Input Pin from BL616 MCU
     output wire       uart_tx,     // TX Output Pin to BL616 MCU
     
-    // Physical Differential Pin Pairs mapped by terminal_pins.cst
-    output wire [2:0] tmds_clk_p,  tmds_clk_n,
+    // Fixed: Clock is a single wire; data is a 3-bit vector array
+    output wire       tmds_clk_p,  tmds_clk_n,
     output wire [2:0] tmds_data_p, tmds_data_n
 );
 
