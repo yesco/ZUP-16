@@ -16,8 +16,9 @@ module mock_terminal_cpu (
     reg [7:0]  live_key;
     
     reg [10:0] scan_ptr;
-    wire [5:0] scan_col = scan_ptr % 64;
-    wire [4:0] current_row = cursor_ptr / 64;
+
+    wire [5:0]  scan_col    = scan_ptr[5:0];    // Mask lower 6 bits (equal to modulo 64)
+    wire [4:0]  current_row = cursor_ptr[10:6]; // Slice top 5 bits (equal to divide by 64)
 
     // Edge Detection Register Logic
     reg        rx_valid_r;
@@ -74,10 +75,13 @@ module mock_terminal_cpu (
                         if (current_row == 5'd31)
                             cursor_ptr <= 11'd64;
                         else
-                            cursor_ptr <= (current_row + 1'b1) * 64; 
-                    end else begin
-                        if (cursor_ptr == 11'd2047) cursor_ptr <= 11'd64;
-                        else cursor_ptr <= cursor_ptr + 1'b1;
+                            cursor_ptr <= (current_row + 1'b1) << 6; 
+		    end else begin
+                        // Advance normal character pointer position sequentially
+                        if (cursor_ptr == 11'd2048) 
+                            cursor_ptr <= 11'd64; // Wrap back cleanly *after* writing slot 2047
+                        else 
+                            cursor_ptr <= cursor_ptr + 1'b1;
                     end
                     
                     mem_addr <= 16'h8000;
